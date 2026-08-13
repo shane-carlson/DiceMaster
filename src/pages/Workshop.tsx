@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TopBar } from "../components/layout/TopBar";
 import { ExportDialog } from "../components/panels/ExportDialog";
+import { FaceEditor } from "../components/panels/FaceEditor";
 import { InspectorPanel } from "../components/panels/InspectorPanel";
 import { LibraryPanel } from "../components/panels/LibraryPanel";
 import { DiceViewport } from "../components/viewport/DiceViewport";
@@ -15,6 +16,7 @@ export function Workshop() {
   const project = useProjectStore((s) => s.project);
   const font = useFont(project.fontId, project.customFontBase64);
   const [exportOpen, setExportOpen] = useState(false);
+  const [faceEditorOpen, setFaceEditorOpen] = useState(false);
 
   useEffect(() => {
     const template = params.get("template");
@@ -26,9 +28,17 @@ export function Workshop() {
     <div className="workshop">
       <TopBar onExport={() => setExportOpen(true)} />
       <div className="workshop-body">
-        <LibraryPanel />
+        <LibraryPanel onOpenFaceEditor={() => setFaceEditorOpen(true)} />
         <DiceViewport font={font} />
         <InspectorPanel />
+        <button
+          className="face-editor-tab"
+          onClick={() => setFaceEditorOpen(true)}
+          hidden={faceEditorOpen}
+        >
+          Face editor
+        </button>
+        <FaceEditor open={faceEditorOpen} onClose={() => setFaceEditorOpen(false)} />
       </div>
       {exportOpen && <ExportDialog font={font} onClose={() => setExportOpen(false)} />}
     </div>

@@ -44,6 +44,7 @@ export interface WorkshopState {
   removeDie: (id: string) => void;
   duplicateDie: (id: string) => void;
   selectDie: (id: string | null) => void;
+  selectDieFace: (id: string, faceIndex: number) => void;
   focusDie: (id: string) => void;
   selectFace: (index: number | null) => void;
   updateDie: (id: string, patch: Partial<DieInstance>) => void;
@@ -171,6 +172,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
     }),
 
   selectDie: (id) => set({ selectedDieId: id, selectedFaceIndex: null }),
+  selectDieFace: (id, faceIndex) => set({ selectedDieId: id, selectedFaceIndex: faceIndex }),
   focusDie: (id) =>
     set((s) => ({
       selectedDieId: id,

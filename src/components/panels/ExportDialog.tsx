@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Font } from "opentype.js";
-import { downloadBlob, exportDieStl, exportProjectZip } from "../../engine/stl";
+import { STANDARD_RESIN_PLATE } from "../../engine/packPlate";
+import { downloadBlob, exportDieStl, exportPackedPlateStl, exportProjectZip } from "../../engine/stl";
 import { useProjectStore } from "../../store/projectStore";
 
 export function ExportDialog({
@@ -17,11 +18,14 @@ export function ExportDialog({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 1, label: "" });
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"plate" | "zip">("plate");
 
   const selected = useMemo(
     () => project.dice.filter((d) => picked[d.id]),
     [project.dice, picked],
   );
+
+  const allOn = selected.length === project.dice.length && project.dice.length > 0;
 
   const run = async () => {
     if (!font) {
@@ -35,20 +39,33 @@ export function ExportDialog({
     setBusy(true);
     setError(null);
     try {
-      if (selected.length === 1) {
-        setProgress({ done: 0, total: 1, label: selected[0].name });
-        const { name, buffer } = await exportDieStl(
-          selected[0],
-          font,
-          project.logos,
-          project.globalFontScale,
-        );
-        downloadBlob(new Blob([new Uint8Array(buffer)], { type: "model/stl" }), name);
+      if (mode === "zip") {
+        if (selected.length === 1) {
+          setProgress({ done: 0, total: 1, label: selected[0].name });
+          const { name, buffer } = await exportDieStl(
+            selected[0],
+            font,
+            project.logos,
+            project.globalFontScale,
+          );
+          downloadBlob(new Blob([new Uint8Array(buffer)], { type: "model/stl" }), name);
+        } else {
+          const blob = await exportProjectZip(project, selected, font, (done, total, label) => {
+            setProgress({ done, total, label });
+          });
+          downloadBlob(blob, `${project.name.replace(/\s+/g, "-").toLowerCase()}-stl.zip`);
+        }
       } else {
-        const blob = await exportProjectZip(project, selected, font, (done, total, label) => {
-          setProgress({ done, total, label });
-        });
-        downloadBlob(blob, `${project.name.replace(/\s+/g, "-").toLowerCase()}-stl.zip`);
+        const packed = await exportPackedPlateStl(
+          project,
+          selected,
+          font,
+          (done, total, label) => setProgress({ done, total, label }),
+        );
+        downloadBlob(
+          new Blob([new Uint8Array(packed.buffer)], { type: "model/stl" }),
+          packed.name,
+        );
       }
       onClose();
     } catch (err) {
@@ -63,10 +80,30 @@ export function ExportDialog({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Export STL masters</h2>
         <p className="help">
-          Binary STL, 1 unit = 1 mm. Engravings are carved with CSG so slicers (Chitubox, Lychee,
-          PrusaSlicer) can print a true master.
+          Binary STL, 1 unit = 1 mm. By default every selected die is packed onto a single{" "}
+          {STANDARD_RESIN_PLATE.width}×{STANDARD_RESIN_PLATE.depth} mm resin plate (Mars 3 / Photon
+          class). Uncheck a die to leave it off the plate.
         </p>
+        <div className="chip-row" style={{ marginBottom: 10 }}>
+          <button className={`chip ${mode === "plate" ? "active" : ""}`} onClick={() => setMode("plate")}>
+            One plate STL
+          </button>
+          <button className={`chip ${mode === "zip" ? "active" : ""}`} onClick={() => setMode("zip")}>
+            Separate files (ZIP)
+          </button>
+        </div>
         <div className="export-list">
+          <label className="export-row">
+            <input
+              type="checkbox"
+              checked={allOn}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setPicked(Object.fromEntries(project.dice.map((d) => [d.id, on])));
+              }}
+            />
+            <span>All dice</span>
+          </label>
           {project.dice.map((d) => (
             <label key={d.id} className="export-row">
               <input
@@ -96,7 +133,13 @@ export function ExportDialog({
         {error && <p className="help" style={{ color: "#f0b4a8" }}>{error}</p>}
         <div className="hero-actions">
           <button className="btn btn-gold" disabled={busy} onClick={() => void run()}>
-            {busy ? "Carving…" : selected.length > 1 ? "Download ZIP" : "Download STL"}
+            {busy
+              ? "Carving…"
+              : mode === "plate"
+                ? `Download plate (${selected.length})`
+                : selected.length > 1
+                  ? "Download ZIP"
+                  : "Download STL"}
           </button>
           <button className="btn" disabled={busy} onClick={onClose}>
             Close

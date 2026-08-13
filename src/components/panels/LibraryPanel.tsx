@@ -19,7 +19,7 @@ const ADDABLE: DieType[] = [
   "d20",
 ];
 
-export function LibraryPanel() {
+export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => void }) {
   const project = useProjectStore((s) => s.project);
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
@@ -90,6 +90,11 @@ export function LibraryPanel() {
       </div>
 
       <h2>This set</h2>
+      {onOpenFaceEditor && (
+        <button className="btn btn-gold btn-small" style={{ marginBottom: 10 }} onClick={onOpenFaceEditor}>
+          Face editor
+        </button>
+      )}
       <div className="die-list">
         {project.dice.length === 0 && <div className="empty">The vault is empty. Add a die.</div>}
         {project.dice.map((die) => (

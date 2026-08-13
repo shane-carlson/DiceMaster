@@ -1,8 +1,10 @@
-import { Mesh, MeshNormalMaterial } from "three";
+import { BufferGeometry, Mesh, MeshNormalMaterial } from "three";
 import { STLExporter } from "three/addons/exporters/STLExporter.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import JSZip from "jszip";
 import type { Font } from "opentype.js";
 import { bakeEngraving, buildDie } from "./buildDie";
+import { packFootprints, STANDARD_RESIN_PLATE } from "./packPlate";
 import type { DieInstance, LogoAsset, Project } from "./types";
 
 const exporter = new STLExporter();
@@ -83,4 +85,78 @@ export async function exportProjectZip(
 
 export function safeFilename(name: string, ext: string): string {
   return `${slug(name)}.${ext}`;
+}
+
+function sitOnBuildPlate(geom: BufferGeometry) {
+  geom.computeBoundingBox();
+  const bb = geom.boundingBox;
+  if (!bb) return;
+  geom.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+}
+
+export async function exportPackedPlateStl(
+  project: Project,
+  dice: DieInstance[],
+  font: Font,
+  onProgress?: (done: number, total: number, label: string) => void,
+): Promise<{
+  name: string;
+  buffer: ArrayBuffer;
+  width: number;
+  depth: number;
+  fitsPlate: boolean;
+}> {
+  const pieces: { id: string; geom: BufferGeometry; width: number; depth: number }[] = [];
+  const total = dice.length;
+  for (let i = 0; i < dice.length; i++) {
+    const die = dice[i];
+    onProgress?.(i, total, die.name);
+    const build = await buildDie(die, font, project.logos, project.globalFontScale, "print");
+    const baked = bakeEngraving(build, die.engraveMode);
+    sitOnBuildPlate(baked);
+    baked.computeBoundingBox();
+    const bb = baked.boundingBox!;
+    pieces.push({
+      id: die.id,
+      geom: baked,
+      width: bb.max.x - bb.min.x,
+      depth: bb.max.z - bb.min.z,
+    });
+    build.body.dispose();
+    for (const g of build.glyphs) g.geometry.dispose();
+  }
+
+  const packed = packFootprints(
+    pieces.map((p) => ({ id: p.id, width: p.width, depth: p.depth })),
+    STANDARD_RESIN_PLATE,
+  );
+  const byId = new Map(pieces.map((p) => [p.id, p]));
+  const placed: BufferGeometry[] = [];
+  for (const slot of packed.slots) {
+    const piece = byId.get(slot.id);
+    if (!piece) continue;
+    piece.geom.translate(slot.x, 0, slot.z);
+    placed.push(piece.geom);
+  }
+
+  const merged =
+    placed.length <= 1 ? placed[0]! : (mergeGeometries(placed, false) ?? placed[0]!);
+  merged.rotateX(-Math.PI / 2);
+  merged.computeBoundingBox();
+  const bb = merged.boundingBox;
+  if (bb) merged.translate(-bb.min.x, -bb.min.y, -bb.min.z);
+
+  const buffer = geometryToStl(merged);
+  if (placed.length > 1) {
+    for (const g of placed) g.dispose();
+  }
+  merged.dispose();
+  onProgress?.(total, total, "Plate");
+  return {
+    name: `${slug(project.name) || "dicemaster"}-plate.stl`,
+    buffer,
+    width: packed.width,
+    depth: packed.depth,
+    fitsPlate: packed.fitsPlate,
+  };
 }

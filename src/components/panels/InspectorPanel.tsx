@@ -236,6 +236,12 @@ export function InspectorPanel() {
       </div>
 
       <h2>Face {faceNo === null ? "" : faceNo + 1}</h2>
+      {die.type === "d4" && (
+        <p className="help">
+          Tetrahedron D4s carry three numbers per face, one at each vertex. After a roll, read the
+          number at the point that stands up.
+        </p>
+      )}
       {!face && (
         <p className="help">Click a face on the die to inscribe numbers, crests, or blank it for a logo.</p>
       )}
@@ -253,7 +259,8 @@ export function InspectorPanel() {
               </button>
             ))}
           </div>
-          {(face.primary.kind === "number" || face.primary.kind === "text") && (
+          {(face.primary.kind === "text" ||
+            (face.primary.kind === "number" && die.type !== "d4")) && (
             <div className="field">
               <label>Inscription</label>
               <input

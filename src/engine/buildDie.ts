@@ -17,6 +17,7 @@ import { extractFaces, faceInradius, glyphFitSize, type DieFace } from "./faces"
 import { createDieGeometry, uniqueVertices } from "./geometry";
 import { buildGlyphGeometry, pipPositions } from "./glyphs";
 import { numberFaces, type NumberedFace } from "./numbering";
+import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
 
 export interface PlacedGlyph {
@@ -102,25 +103,27 @@ async function placedFromGlyph(
   logos: LogoAsset[],
   globalScale: number,
   role: PlacedGlyph["role"],
+  placement?: { ox: number; oy: number; rotation: number; fitMul?: number },
 ): Promise<PlacedGlyph | null> {
   const depth = glyph.depth ?? die.engravingDepth;
-  const fit = glyphFitSize(face) * die.fontScale * globalScale;
+  const fit = glyphFitSize(face) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
   const inkDepth = Math.max(depth * 0.18, 0.12);
   const cutterDepth = Math.min(Math.max(depth * 1.8, 0.7), faceInradius(face) * 0.9);
   const preview = await buildGlyphGeometry(glyph, font, logos, fit, inkDepth);
   const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cutterDepth);
   if (!preview || !cutter) return null;
-  const ox = glyph.offsetX * fit * 0.45;
-  const oy = glyph.offsetY * fit * 0.45;
+  const ox = (placement?.ox ?? 0) + glyph.offsetX * fit * 0.45;
+  const oy = (placement?.oy ?? 0) + glyph.offsetY * fit * 0.45;
+  const rotation = (placement?.rotation ?? 0) + glyph.rotation;
   const surfaceZ = die.engraveMode === "emboss" ? Math.max(depth * 0.35, 0.12) : 0.06;
   const wellZ = -Math.min(depth, cutterDepth) * 0.4;
   const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.25;
   return {
     geometry: preview.geometry,
-    matrix: faceMatrix(face, surfaceZ, glyph.rotation, ox, oy),
-    wellMatrix: faceMatrix(face, wellZ, glyph.rotation, ox, oy),
+    matrix: faceMatrix(face, surfaceZ, rotation, ox, oy),
+    wellMatrix: faceMatrix(face, wellZ, rotation, ox, oy),
     cutter: cutter.geometry,
-    cutterMatrix: faceMatrix(face, cutterZ, glyph.rotation, ox, oy),
+    cutterMatrix: faceMatrix(face, cutterZ, rotation, ox, oy),
     faceIndex: face.index,
     role,
     depth,
@@ -222,6 +225,9 @@ export async function buildDie(
     }
   }
   const glyphs: PlacedGlyph[] = [];
+  const vertexLabels = usesVertexNumerals(die.type)
+    ? tetraOppositeVertexLabels(faces)
+    : null;
 
   for (const face of faces) {
     const settings = die.faces[face.index];
@@ -234,6 +240,25 @@ export async function buildDie(
 
     if (usePips) {
       glyphs.push(...pipGlyphs(face, die));
+    } else if (vertexLabels && settings.primary.kind === "number") {
+      for (const corner of d4CornerPlacements(face, vertexLabels)) {
+        const glyph = {
+          ...settings.primary,
+          text: corner.label,
+          underscore: corner.label === "6" || corner.label === "9",
+        };
+        const placed = await placedFromGlyph(
+          glyph,
+          face,
+          die,
+          font,
+          logos,
+          globalScale,
+          "primary",
+          { ox: corner.ox, oy: corner.oy, rotation: corner.rotation, fitMul: 0.42 },
+        );
+        if (placed) glyphs.push(placed);
+      }
     } else {
       const primary = await placedFromGlyph(
         settings.primary,
