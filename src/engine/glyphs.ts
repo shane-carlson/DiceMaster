@@ -151,16 +151,72 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function underscoreShape(width: number, y: number): Shape {
+export interface Rect2 {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** Tight 6/9 discriminator, tucked under the digit instead of below the face. */
+export function underscoreBar(digit: Rect2): Rect2 {
+  const w = Math.max(digit.maxX - digit.minX, 1e-6);
+  const h = Math.max(digit.maxY - digit.minY, 1e-6);
+  const cx = (digit.minX + digit.maxX) / 2;
+  const barH = h * 0.06;
+  const gap = h * 0.05;
+  const halfW = w * 0.38;
+  const top = digit.minY - gap;
+  return {
+    minX: cx - halfW,
+    maxX: cx + halfW,
+    maxY: top,
+    minY: top - barH,
+  };
+}
+
+function rectShape(r: Rect2): Shape {
   const s = new Shape();
-  const h = Math.max(0.08, width * 0.07);
-  const w = width * 0.55;
-  s.moveTo(-w, y);
-  s.lineTo(w, y);
-  s.lineTo(w, y - h);
-  s.lineTo(-w, y - h);
+  s.moveTo(r.minX, r.maxY);
+  s.lineTo(r.maxX, r.maxY);
+  s.lineTo(r.maxX, r.minY);
+  s.lineTo(r.minX, r.minY);
   s.closePath();
   return s;
+}
+
+function shapesBBox(shapes: Shape[]): Rect2 | null {
+  const probe = new ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
+  probe.computeBoundingBox();
+  const bb = probe.boundingBox;
+  probe.dispose();
+  if (!bb) return null;
+  return { minX: bb.min.x, minY: bb.min.y, maxX: bb.max.x, maxY: bb.max.y };
+}
+
+function scaleShapes(shapes: Shape[], scale: number): Shape[] {
+  return shapes.map((shape) => {
+    const next = new Shape();
+    const pts = shape.getPoints(20);
+    const holes = shape.holes.map((hole) => hole.getPoints(20));
+    if (pts.length === 0) return shape;
+    next.moveTo(pts[0].x * scale, pts[0].y * scale);
+    for (let i = 1; i < pts.length; i++) {
+      next.lineTo(pts[i].x * scale, pts[i].y * scale);
+    }
+    next.closePath();
+    for (const holePts of holes) {
+      if (holePts.length === 0) continue;
+      const hole = new Shape();
+      hole.moveTo(holePts[0].x * scale, holePts[0].y * scale);
+      for (let i = 1; i < holePts.length; i++) {
+        hole.lineTo(holePts[i].x * scale, holePts[i].y * scale);
+      }
+      hole.closePath();
+      next.holes.push(hole);
+    }
+    return next;
+  });
 }
 
 function centerAndExtrude(shapes: Shape[], depth: number): ExtrudeGeometry | null {
@@ -228,43 +284,17 @@ export async function buildGlyphGeometry(
   shapes = shapes.filter((_, i) => extents[i] < median * 8 && extents[i] > median * 0.01);
   if (shapes.length === 0) return null;
 
-  const probe = new ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
-  probe.computeBoundingBox();
-  const bb = probe.boundingBox;
-  probe.dispose();
-  if (!bb) return null;
-  const w = bb.max.x - bb.min.x || 1;
-  const h = bb.max.y - bb.min.y || 1;
-  const scale = (targetSize / Math.max(w, h)) * glyph.scale;
-  for (const shape of shapes) {
-    shape.extractPoints(1);
-  }
-  const scaled = shapes.map((shape) => {
-    const next = new Shape();
-    const pts = shape.getPoints(20);
-    const holes = shape.holes.map((hole) => hole.getPoints(20));
-    if (pts.length === 0) return shape;
-    next.moveTo(pts[0].x * scale, pts[0].y * scale);
-    for (let i = 1; i < pts.length; i++) {
-      next.lineTo(pts[i].x * scale, pts[i].y * scale);
-    }
-    next.closePath();
-    for (const holePts of holes) {
-      if (holePts.length === 0) continue;
-      const hole = new Shape();
-      hole.moveTo(holePts[0].x * scale, holePts[0].y * scale);
-      for (let i = 1; i < holePts.length; i++) {
-        hole.lineTo(holePts[i].x * scale, holePts[i].y * scale);
-      }
-      hole.closePath();
-      next.holes.push(hole);
-    }
-    return next;
-  });
-
   if (glyph.underscore) {
-    scaled.push(underscoreShape(Math.max(w, h) * scale, -h * scale * 0.55));
+    const digit = shapesBBox(shapes);
+    if (digit) shapes.push(rectShape(underscoreBar(digit)));
   }
+
+  const bb = shapesBBox(shapes);
+  if (!bb) return null;
+  const w = bb.maxX - bb.minX || 1;
+  const h = bb.maxY - bb.minY || 1;
+  const scale = (targetSize / Math.max(w, h)) * glyph.scale;
+  const scaled = scaleShapes(shapes, scale);
 
   const geometry = centerAndExtrude(scaled, depth);
   if (!geometry) return null;
