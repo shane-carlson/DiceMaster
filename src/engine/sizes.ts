@@ -1,6 +1,7 @@
 import type { DieType, SizeFormatId } from "./types";
 
-/** Characteristic size in millimetres (longest bounding-box axis). */
+/** Characteristic size in millimetres (longest bounding-box axis).
+ *  D8 / D10 / D% are also this wide at the equator. */
 export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
   mini: {
     d2: 16,

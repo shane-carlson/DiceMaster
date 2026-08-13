@@ -37,6 +37,25 @@ describe("polyhedral geometry", () => {
     const geom = createDieGeometry("d2", 20);
     expect(extractFaces(geom, "d2")).toHaveLength(2);
   });
+
+  it("d8 and d10 are as wide at the equator as they are tall", () => {
+    for (const type of ["d8", "d10", "d00"] as const) {
+      const geo = createDieGeometry(type, 16);
+      const pos = geo.getAttribute("position");
+      let minY = Infinity;
+      let maxY = -Infinity;
+      let maxR = 0;
+      for (let i = 0; i < pos.count; i++) {
+        minY = Math.min(minY, pos.getY(i));
+        maxY = Math.max(maxY, pos.getY(i));
+        maxR = Math.max(maxR, Math.hypot(pos.getX(i), pos.getZ(i)));
+      }
+      const height = maxY - minY;
+      const equator = maxR * 2;
+      expect(height).toBeCloseTo(16, 4);
+      expect(equator).toBeCloseTo(height, 4);
+    }
+  });
 });
 
 describe("numbering", () => {

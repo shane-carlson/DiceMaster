@@ -23,8 +23,35 @@ function scaleToSize(geometry: BufferGeometry, sizeMm: number): BufferGeometry {
   return geometry;
 }
 
+/** Diameter of the bounding cylinder around the Y axis (equatorial girth). */
+function equatorialDiameter(geometry: BufferGeometry): number {
+  const pos = geometry.getAttribute("position");
+  let maxR = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const r = Math.hypot(pos.getX(i), pos.getZ(i));
+    if (r > maxR) maxR = r;
+  }
+  return maxR * 2;
+}
+
+/** Make pole-to-pole height equal equatorial diameter, then fit to sizeMm. */
+function scaleHeightToEquator(geometry: BufferGeometry, sizeMm: number): BufferGeometry {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  if (!bb) return geometry;
+  const height = bb.max.y - bb.min.y || 1;
+  const eq = equatorialDiameter(geometry) || 1;
+  const xz = height / eq;
+  geometry.scale(xz, 1, xz);
+  return scaleToSize(geometry, sizeMm);
+}
+
 function hull(points: Vector3[], sizeMm: number): BufferGeometry {
   return scaleToSize(new ConvexGeometry(points.map((p) => p.clone())), sizeMm);
+}
+
+function hullEqualHeightAndEquator(points: Vector3[], sizeMm: number): BufferGeometry {
+  return scaleHeightToEquator(new ConvexGeometry(points.map((p) => p.clone())), sizeMm);
 }
 
 function icosahedronVertices(): Vector3[] {
@@ -100,9 +127,11 @@ function octahedronVertices(): Vector3[] {
 
 function trapezohedronVertices(sides = 5): Vector3[] {
   const pts: Vector3[] = [];
-  const peak = 1.45;
-  const ringY = 0.18;
+  // Polar height 2 and equatorial cylinder diameter 2, so the die is as
+  // wide at the equator as it is tall. Ring offset keeps kite faces.
+  const peak = 1;
   const radius = 1;
+  const ringY = 0.12;
   pts.push(new Vector3(0, peak, 0));
   pts.push(new Vector3(0, -peak, 0));
   for (let i = 0; i < sides; i++) {
@@ -153,10 +182,10 @@ export function createDieGeometry(type: DieType, sizeMm: number): BufferGeometry
     case "d6":
       return hull(cubeVertices(), sizeMm);
     case "d8":
-      return hull(octahedronVertices(), sizeMm);
+      return hullEqualHeightAndEquator(octahedronVertices(), sizeMm);
     case "d10":
     case "d00":
-      return hull(trapezohedronVertices(5), sizeMm);
+      return hullEqualHeightAndEquator(trapezohedronVertices(5), sizeMm);
     case "d12":
       return hull(dodecahedronVertices(), sizeMm);
     case "d20":
