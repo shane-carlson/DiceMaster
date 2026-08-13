@@ -10,14 +10,16 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { DieBuild, PlacedGlyph } from "../../engine/buildDie";
 import { triangleToFaceMap } from "../../engine/faces";
 
+/** Sit a thin, unlit inlay at the mouth of the cut so numerals stay readable. */
 function glyphMatrix(glyph: PlacedGlyph, carved: boolean, engrave: boolean): Matrix4 {
   const m = glyph.matrix.clone();
   if (!engrave) return m;
   const depth = Math.max(glyph.depth, 0.25);
-  const z = carved ? -depth * 0.35 : 0.015;
-  const zScale = carved ? 0.07 : 0.035;
+  // Cutters are shifted inward by 0.45*depth; bring the inlay back to the face
+  // and park it just inside the cavity.
+  const z = carved ? depth * 0.42 - 0.06 : 0.04;
   m.multiply(new Matrix4().makeTranslation(0, 0, z));
-  m.multiply(new Matrix4().makeScale(1, 1, zScale));
+  m.multiply(new Matrix4().makeScale(1, 1, 0.05));
   return m;
 }
 
@@ -42,14 +44,12 @@ function GlyphMesh({
   }, [glyph, carved, engrave]);
 
   return (
-    <mesh ref={ref} geometry={glyph.geometry} renderOrder={engrave ? 1 : 0}>
-      <meshStandardMaterial
+    <mesh ref={ref} geometry={glyph.geometry} renderOrder={2}>
+      <meshBasicMaterial
         color={color}
-        roughness={0.5}
-        metalness={0}
         polygonOffset
-        polygonOffsetFactor={-2}
-        polygonOffsetUnits={-2}
+        polygonOffsetFactor={-4}
+        polygonOffsetUnits={-4}
       />
     </mesh>
   );
@@ -117,22 +117,18 @@ export function DieMesh({
           emissiveIntensity={selected ? 0.28 : 0.04}
         />
       </mesh>
-      <mesh
-        geometry={build.pickGeometry}
-        visible={false}
-        onClick={onClick}
-      />
+      <mesh geometry={build.pickGeometry} visible={false} onClick={onClick} />
       {build.glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
           carved={build.carved}
           engrave={engrave}
-          color={g.role === "emblem" ? "#e6c56a" : "#160f0c"}
+          color={g.role === "emblem" ? "#f0d78a" : "#070504"}
         />
       ))}
       {highlight && (
-        <mesh geometry={highlight} renderOrder={2}>
+        <mesh geometry={highlight} renderOrder={3}>
           <meshBasicMaterial
             color="#f0d78a"
             transparent

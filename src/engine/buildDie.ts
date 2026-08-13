@@ -20,15 +20,15 @@ import { numberFaces, type NumberedFace } from "./numbering";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
 
 const FACE_GLYPH_SPAN: Record<DieInstance["type"], number> = {
-  d2: 0.44,
-  d4: 0.3,
-  d4crystal: 0.24,
-  d6: 0.46,
-  d8: 0.32,
-  d10: 0.28,
-  d00: 0.24,
-  d12: 0.3,
-  d20: 0.26,
+  d2: 0.5,
+  d4: 0.36,
+  d4crystal: 0.3,
+  d6: 0.52,
+  d8: 0.38,
+  d10: 0.34,
+  d00: 0.3,
+  d12: 0.36,
+  d20: 0.34,
 };
 
 export interface PlacedGlyph {
