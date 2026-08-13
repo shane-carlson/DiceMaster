@@ -3,27 +3,49 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  Matrix4,
   Mesh as ThreeMesh,
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { DieBuild, PlacedGlyph } from "../../engine/buildDie";
 import { triangleToFaceMap } from "../../engine/faces";
 
-function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
+function glyphMatrix(glyph: PlacedGlyph, carved: boolean, engrave: boolean): Matrix4 {
+  const m = glyph.matrix.clone();
+  if (!engrave) return m;
+  const depth = Math.max(glyph.depth, 0.25);
+  const z = carved ? -depth * 0.35 : 0.015;
+  const zScale = carved ? 0.07 : 0.035;
+  m.multiply(new Matrix4().makeTranslation(0, 0, z));
+  m.multiply(new Matrix4().makeScale(1, 1, zScale));
+  return m;
+}
+
+function GlyphMesh({
+  glyph,
+  color,
+  carved,
+  engrave,
+}: {
+  glyph: PlacedGlyph;
+  color: string;
+  carved: boolean;
+  engrave: boolean;
+}) {
   const ref = useRef<ThreeMesh>(null);
 
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
-    mesh.matrix.copy(glyph.matrix);
+    mesh.matrix.copy(glyphMatrix(glyph, carved, engrave));
     mesh.matrixAutoUpdate = false;
-  }, [glyph.matrix]);
+  }, [glyph, carved, engrave]);
 
   return (
-    <mesh ref={ref} geometry={glyph.geometry}>
+    <mesh ref={ref} geometry={glyph.geometry} renderOrder={engrave ? 1 : 0}>
       <meshStandardMaterial
         color={color}
-        roughness={0.45}
+        roughness={0.5}
         metalness={0}
         polygonOffset
         polygonOffsetFactor={-2}
@@ -49,6 +71,7 @@ export function DieMesh({
   onSelectDie: () => void;
 }) {
   const faceMap = useMemo(() => triangleToFaceMap(build.faces), [build.faces]);
+  const engrave = build.engraveMode === "engrave";
 
   const highlight = useMemo(() => {
     if (selectedFace === null) return null;
@@ -84,7 +107,7 @@ export function DieMesh({
 
   return (
     <group>
-      <mesh geometry={build.body} onClick={onClick} castShadow receiveShadow>
+      <mesh geometry={build.body} castShadow receiveShadow>
         <meshStandardMaterial
           color={color}
           roughness={0.38}
@@ -94,10 +117,17 @@ export function DieMesh({
           emissiveIntensity={selected ? 0.28 : 0.04}
         />
       </mesh>
+      <mesh
+        geometry={build.pickGeometry}
+        visible={false}
+        onClick={onClick}
+      />
       {build.glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
+          carved={build.carved}
+          engrave={engrave}
           color={g.role === "emblem" ? "#e6c56a" : "#160f0c"}
         />
       ))}

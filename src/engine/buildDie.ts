@@ -36,13 +36,17 @@ export interface PlacedGlyph {
   matrix: Matrix4;
   faceIndex: number;
   role: "primary" | "emblem" | "pip";
+  depth: number;
 }
 
 export interface DieBuild {
   body: BufferGeometry;
+  pickGeometry: BufferGeometry;
   faces: NumberedFace[];
   glyphs: PlacedGlyph[];
   sizeMm: number;
+  engraveMode: DieInstance["engraveMode"];
+  carved: boolean;
 }
 
 function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, ox: number, oy: number): Matrix4 {
@@ -110,13 +114,15 @@ async function placedFromGlyph(
 ): Promise<PlacedGlyph | null> {
   const depth = glyph.depth ?? die.engravingDepth;
   const span = die.sizeMm * FACE_GLYPH_SPAN[die.type] * die.fontScale * globalScale;
-  const built = await buildGlyphGeometry(glyph, font, logos, span, Math.max(depth * 2.4, 0.8));
+  const built = await buildGlyphGeometry(glyph, font, logos, span, Math.max(depth * 2.6, 1));
   if (!built) return null;
   const ox = glyph.offsetX * span * 0.55;
   const oy = glyph.offsetY * span * 0.55;
-  const zOff = die.engraveMode === "emboss" ? depth * 0.45 : 0;
+  // Emboss sits outward. Engrave cutters are shifted inward so most of the
+  // volume is inside the die (preview overlays no longer read as raised type).
+  const zOff = die.engraveMode === "emboss" ? depth * 0.55 : -depth * 0.45;
   const matrix = faceMatrix(face, zOff, glyph.rotation, ox, oy);
-  return { geometry: built.geometry, matrix, faceIndex: face.index, role };
+  return { geometry: built.geometry, matrix, faceIndex: face.index, role, depth };
 }
 
 function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
@@ -129,8 +135,15 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   return pts.map((p) => {
     const geom = new CylinderGeometry(radius, radius, depth, 20);
     geom.rotateX(Math.PI / 2);
-    const matrix = faceMatrix(face, 0, 0, p.x, p.y);
-    return { geometry: geom, matrix, faceIndex: face.index, role: "pip" as const };
+    const zOff = die.engraveMode === "emboss" ? die.engravingDepth * 0.4 : -die.engravingDepth * 0.45;
+    const matrix = faceMatrix(face, zOff, 0, p.x, p.y);
+    return {
+      geometry: geom,
+      matrix,
+      faceIndex: face.index,
+      role: "pip" as const,
+      depth: die.engravingDepth,
+    };
   });
 }
 
@@ -195,25 +208,51 @@ export async function buildDie(
     }
   }
 
-  return { body, faces, glyphs, sizeMm: die.sizeMm };
+  return {
+    body,
+    pickGeometry: body,
+    faces,
+    glyphs,
+    sizeMm: die.sizeMm,
+    engraveMode: die.engraveMode,
+    carved: false,
+  };
 }
 
 export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"]): BufferGeometry {
+  if (build.glyphs.length === 0) return build.body.clone();
   const evaluator = new Evaluator();
   evaluator.useGroups = false;
-  let current = new Brush(build.body.clone());
-  current.updateMatrixWorld();
-
   const op = mode === "emboss" ? ADDITION : SUBTRACTION;
-  for (const glyph of build.glyphs) {
+
+  const makeCutter = (glyph: PlacedGlyph) => {
     const cutter = new Brush(glyph.geometry.clone());
     cutter.applyMatrix4(glyph.matrix);
     cutter.updateMatrixWorld();
-    current = evaluator.evaluate(current, cutter, op);
+    return cutter;
+  };
+
+  const body = new Brush(build.body.clone());
+  body.updateMatrixWorld();
+
+  try {
+    let tool = makeCutter(build.glyphs[0]);
+    for (let i = 1; i < build.glyphs.length; i++) {
+      tool = evaluator.evaluate(tool, makeCutter(build.glyphs[i]), ADDITION);
+    }
+    const result = evaluator.evaluate(body, tool, op);
+    const geom = result.geometry.clone();
+    geom.computeVertexNormals();
+    return geom;
+  } catch {
+    let current = body;
+    for (const glyph of build.glyphs) {
+      current = evaluator.evaluate(current, makeCutter(glyph), op);
+    }
+    const geom = current.geometry.clone();
+    geom.computeVertexNormals();
+    return geom;
   }
-  const geom = current.geometry.clone();
-  geom.computeVertexNormals();
-  return geom;
 }
 
 export function glyphWorldMesh(glyph: PlacedGlyph): Mesh {
