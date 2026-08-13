@@ -2,7 +2,6 @@ import {
   BufferGeometry,
   ExtrudeGeometry,
   Shape,
-  ShapeGeometry,
   ShapePath,
   Vector2,
   Vector3,
@@ -223,18 +222,8 @@ function scaleShapes(shapes: Shape[], scale: number): Shape[] {
 
 function centerAndExtrude(shapes: Shape[], depth: number): BufferGeometry | null {
   if (shapes.length === 0) return null;
-  if (depth < 0.02) {
-    const geom = new ShapeGeometry(shapes, 8);
-    geom.computeBoundingBox();
-    const bb = geom.boundingBox;
-    if (bb) {
-      geom.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, 0);
-    }
-    geom.computeVertexNormals();
-    return geom;
-  }
   const geom = new ExtrudeGeometry(shapes, {
-    depth,
+    depth: Math.max(depth, 0.08),
     bevelEnabled: false,
     curveSegments: 6,
     steps: 1,
@@ -244,7 +233,8 @@ function centerAndExtrude(shapes: Shape[], depth: number): BufferGeometry | null
   if (!bb) return geom;
   const cx = (bb.min.x + bb.max.x) / 2;
   const cy = (bb.min.y + bb.max.y) / 2;
-  geom.translate(-cx, -cy, -depth / 2);
+  const d = Math.max(depth, 0.08);
+  geom.translate(-cx, -cy, -d / 2);
   geom.computeVertexNormals();
   return geom;
 }

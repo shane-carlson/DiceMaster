@@ -4,10 +4,11 @@ import {
   BufferGeometry,
   DoubleSide,
   Mesh as ThreeMesh,
+  Vector3,
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { DieBuild, PlacedGlyph } from "../../engine/buildDie";
-import { triangleToFaceMap } from "../../engine/faces";
+import type { DieFace } from "../../engine/faces";
 
 function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   const ref = useRef<ThreeMesh>(null);
@@ -24,12 +25,25 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
       <meshBasicMaterial
         color={color}
         polygonOffset
-        polygonOffsetFactor={-8}
-        polygonOffsetUnits={-8}
-        depthWrite={false}
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
       />
     </mesh>
   );
+}
+
+function closestFaceIndex(localPoint: Vector3, faces: DieFace[]): number | null {
+  if (faces.length === 0) return null;
+  let best = faces[0].index;
+  let bestD = Infinity;
+  for (const face of faces) {
+    const d = Math.abs(localPoint.clone().sub(face.center).dot(face.normal));
+    if (d < bestD) {
+      bestD = d;
+      best = face.index;
+    }
+  }
+  return best;
 }
 
 export function DieMesh({
@@ -47,8 +61,6 @@ export function DieMesh({
   onSelectFace: (index: number) => void;
   onSelectDie: () => void;
 }) {
-  const faceMap = useMemo(() => triangleToFaceMap(build.faces), [build.faces]);
-
   const highlight = useMemo(() => {
     if (selectedFace === null) return null;
     const face = build.faces[selectedFace];
@@ -71,14 +83,9 @@ export function DieMesh({
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     onSelectDie();
-    if (typeof e.faceIndex === "number") {
-      const mapped = faceMap.get(e.faceIndex);
-      if (mapped !== undefined) {
-        onSelectFace(mapped);
-        return;
-      }
-    }
-    if (e.face) onSelectFace(e.face.normal.y >= 0 ? 0 : 1);
+    const local = e.object.worldToLocal(e.point.clone());
+    const mapped = closestFaceIndex(local, build.faces);
+    if (mapped !== null) onSelectFace(mapped);
   };
 
   return (

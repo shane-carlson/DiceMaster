@@ -1,6 +1,5 @@
 import {
   BufferGeometry,
-  CircleGeometry,
   CylinderGeometry,
   Matrix4,
   Mesh,
@@ -14,7 +13,7 @@ import {
   SUBTRACTION,
 } from "three-bvh-csg";
 import type { Font } from "opentype.js";
-import { extractFaces, glyphFitSize, type DieFace } from "./faces";
+import { extractFaces, faceInradius, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
 import { buildGlyphGeometry, pipPositions } from "./glyphs";
 import { numberFaces, type NumberedFace } from "./numbering";
@@ -23,6 +22,7 @@ import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
 export interface PlacedGlyph {
   geometry: BufferGeometry;
   matrix: Matrix4;
+  wellMatrix: Matrix4;
   cutter: BufferGeometry;
   cutterMatrix: Matrix4;
   faceIndex: number;
@@ -105,27 +105,22 @@ async function placedFromGlyph(
 ): Promise<PlacedGlyph | null> {
   const depth = glyph.depth ?? die.engravingDepth;
   const fit = glyphFitSize(face) * die.fontScale * globalScale;
-  const engraved = die.engraveMode !== "emboss";
-  const preview = await buildGlyphGeometry(glyph, font, logos, fit, engraved ? 0 : Math.max(depth * 0.45, 0.22));
-  const cutter = await buildGlyphGeometry(
-    glyph,
-    font,
-    logos,
-    fit,
-    Math.max(depth * 2.4, 0.9),
-  );
+  const inkDepth = Math.max(depth * 0.18, 0.12);
+  const cutterDepth = Math.min(Math.max(depth * 1.8, 0.7), faceInradius(face) * 0.9);
+  const preview = await buildGlyphGeometry(glyph, font, logos, fit, inkDepth);
+  const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cutterDepth);
   if (!preview || !cutter) return null;
   const ox = glyph.offsetX * fit * 0.45;
   const oy = glyph.offsetY * fit * 0.45;
-  const previewZ = engraved ? 0.012 : Math.max(depth * 0.35, 0.1);
-  const previewMatrix = faceMatrix(face, previewZ, glyph.rotation, ox, oy);
-  const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.3;
-  const cutterMatrix = faceMatrix(face, cutterZ, glyph.rotation, ox, oy);
+  const surfaceZ = die.engraveMode === "emboss" ? Math.max(depth * 0.35, 0.12) : 0.06;
+  const wellZ = -Math.min(depth, cutterDepth) * 0.4;
+  const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.25;
   return {
     geometry: preview.geometry,
-    matrix: previewMatrix,
+    matrix: faceMatrix(face, surfaceZ, glyph.rotation, ox, oy),
+    wellMatrix: faceMatrix(face, wellZ, glyph.rotation, ox, oy),
     cutter: cutter.geometry,
-    cutterMatrix,
+    cutterMatrix: faceMatrix(face, cutterZ, glyph.rotation, ox, oy),
     faceIndex: face.index,
     role,
     depth,
@@ -138,32 +133,71 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const fit = glyphFitSize(face);
   const span = fit * 0.28;
   const radius = fit * 0.09 * die.fontScale;
-  const cutterDepth = die.engravingDepth * 2.2;
+  const depth = die.engravingDepth;
+  const cutterDepth = Math.min(Math.max(depth * 1.8, 0.7), faceInradius(face) * 0.9);
   const pts = pipPositions(value, span);
-  const engraved = die.engraveMode !== "emboss";
   return pts.map((p) => {
-    const preview = engraved
-      ? new CircleGeometry(radius, 20)
-      : (() => {
-          const geom = new CylinderGeometry(radius, radius, 0.28, 20);
-          geom.rotateX(Math.PI / 2);
-          return geom;
-        })();
+    const preview = new CylinderGeometry(radius, radius, Math.max(depth * 0.18, 0.12), 20);
+    preview.rotateX(Math.PI / 2);
     const cutter = new CylinderGeometry(radius, radius, cutterDepth, 20);
     cutter.rotateX(Math.PI / 2);
-    const previewMatrix = faceMatrix(face, engraved ? 0.012 : 0.12, 0, p.x, p.y);
-    const cutterZ = die.engraveMode === "emboss" ? die.engravingDepth * 0.4 : -die.engravingDepth * 0.3;
-    const cutterMatrix = faceMatrix(face, cutterZ, 0, p.x, p.y);
+    const surfaceZ = die.engraveMode === "emboss" ? 0.12 : 0.06;
     return {
       geometry: preview,
-      matrix: previewMatrix,
+      matrix: faceMatrix(face, surfaceZ, 0, p.x, p.y),
+      wellMatrix: faceMatrix(face, -Math.min(depth, cutterDepth) * 0.4, 0, p.x, p.y),
       cutter,
-      cutterMatrix,
+      cutterMatrix: faceMatrix(
+        face,
+        die.engraveMode === "emboss" ? depth * 0.4 : -depth * 0.25,
+        0,
+        p.x,
+        p.y,
+      ),
       faceIndex: face.index,
       role: "pip" as const,
-      depth: die.engravingDepth,
+      depth,
     };
   });
+}
+
+function carveLooksSane(original: BufferGeometry, carved: BufferGeometry): boolean {
+  original.computeBoundingSphere();
+  carved.computeBoundingSphere();
+  const r0 = original.boundingSphere?.radius ?? 1;
+  const r1 = carved.boundingSphere?.radius ?? 0;
+  const count = carved.getAttribute("position")?.count ?? 0;
+  return r1 < r0 * 1.35 && r1 > r0 * 0.5 && count > 36;
+}
+
+function carveBody(
+  body: BufferGeometry,
+  glyphs: PlacedGlyph[],
+  mode: DieInstance["engraveMode"],
+): BufferGeometry | null {
+  if (glyphs.length === 0) return null;
+  try {
+    const evaluator = new Evaluator();
+    evaluator.useGroups = false;
+    let current = new Brush(body.clone());
+    current.updateMatrixWorld();
+    const op = mode === "emboss" ? ADDITION : SUBTRACTION;
+    for (const glyph of glyphs) {
+      const cutter = new Brush((glyph.cutter ?? glyph.geometry).clone());
+      cutter.applyMatrix4(glyph.cutterMatrix);
+      cutter.updateMatrixWorld();
+      current = evaluator.evaluate(current, cutter, op);
+    }
+    const geom = current.geometry.clone();
+    geom.computeVertexNormals();
+    if (!carveLooksSane(body, geom)) {
+      geom.dispose();
+      return null;
+    }
+    return geom;
+  } catch {
+    return null;
+  }
 }
 
 export async function buildDie(
@@ -227,14 +261,26 @@ export async function buildDie(
     }
   }
 
+  let carved = false;
+  if (quality === "preview" && die.engraveMode === "engrave") {
+    const carvedBody = carveBody(body, glyphs, "engrave");
+    if (carvedBody) {
+      body = carvedBody;
+      carved = true;
+      for (const glyph of glyphs) {
+        glyph.matrix = glyph.wellMatrix;
+      }
+    }
+  }
+
   return {
     body,
-    pickGeometry: body,
+    pickGeometry: sharp,
     faces,
     glyphs,
     sizeMm: die.sizeMm,
     engraveMode: die.engraveMode,
-    carved: false,
+    carved,
   };
 }
 
