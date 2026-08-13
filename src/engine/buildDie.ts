@@ -1,5 +1,6 @@
 import {
   BufferGeometry,
+  CircleGeometry,
   CylinderGeometry,
   Matrix4,
   Mesh,
@@ -104,7 +105,8 @@ async function placedFromGlyph(
 ): Promise<PlacedGlyph | null> {
   const depth = glyph.depth ?? die.engravingDepth;
   const fit = glyphFitSize(face) * die.fontScale * globalScale;
-  const preview = await buildGlyphGeometry(glyph, font, logos, fit, 0.08);
+  const engraved = die.engraveMode !== "emboss";
+  const preview = await buildGlyphGeometry(glyph, font, logos, fit, engraved ? 0 : Math.max(depth * 0.45, 0.22));
   const cutter = await buildGlyphGeometry(
     glyph,
     font,
@@ -115,7 +117,8 @@ async function placedFromGlyph(
   if (!preview || !cutter) return null;
   const ox = glyph.offsetX * fit * 0.45;
   const oy = glyph.offsetY * fit * 0.45;
-  const previewMatrix = faceMatrix(face, 0.05, glyph.rotation, ox, oy);
+  const previewZ = engraved ? 0.012 : Math.max(depth * 0.35, 0.1);
+  const previewMatrix = faceMatrix(face, previewZ, glyph.rotation, ox, oy);
   const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.3;
   const cutterMatrix = faceMatrix(face, cutterZ, glyph.rotation, ox, oy);
   return {
@@ -137,12 +140,18 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const radius = fit * 0.09 * die.fontScale;
   const cutterDepth = die.engravingDepth * 2.2;
   const pts = pipPositions(value, span);
+  const engraved = die.engraveMode !== "emboss";
   return pts.map((p) => {
-    const preview = new CylinderGeometry(radius, radius, 0.08, 20);
-    preview.rotateX(Math.PI / 2);
+    const preview = engraved
+      ? new CircleGeometry(radius, 20)
+      : (() => {
+          const geom = new CylinderGeometry(radius, radius, 0.28, 20);
+          geom.rotateX(Math.PI / 2);
+          return geom;
+        })();
     const cutter = new CylinderGeometry(radius, radius, cutterDepth, 20);
     cutter.rotateX(Math.PI / 2);
-    const previewMatrix = faceMatrix(face, 0.05, 0, p.x, p.y);
+    const previewMatrix = faceMatrix(face, engraved ? 0.012 : 0.12, 0, p.x, p.y);
     const cutterZ = die.engraveMode === "emboss" ? die.engravingDepth * 0.4 : -die.engravingDepth * 0.3;
     const cutterMatrix = faceMatrix(face, cutterZ, 0, p.x, p.y);
     return {

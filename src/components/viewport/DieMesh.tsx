@@ -24,8 +24,9 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
       <meshBasicMaterial
         color={color}
         polygonOffset
-        polygonOffsetFactor={-4}
-        polygonOffsetUnits={-4}
+        polygonOffsetFactor={-8}
+        polygonOffsetUnits={-8}
+        depthWrite={false}
       />
     </mesh>
   );

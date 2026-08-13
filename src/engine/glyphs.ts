@@ -1,6 +1,8 @@
 import {
+  BufferGeometry,
   ExtrudeGeometry,
   Shape,
+  ShapeGeometry,
   ShapePath,
   Vector2,
   Vector3,
@@ -219,8 +221,18 @@ function scaleShapes(shapes: Shape[], scale: number): Shape[] {
   });
 }
 
-function centerAndExtrude(shapes: Shape[], depth: number): ExtrudeGeometry | null {
+function centerAndExtrude(shapes: Shape[], depth: number): BufferGeometry | null {
   if (shapes.length === 0) return null;
+  if (depth < 0.02) {
+    const geom = new ShapeGeometry(shapes, 8);
+    geom.computeBoundingBox();
+    const bb = geom.boundingBox;
+    if (bb) {
+      geom.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, 0);
+    }
+    geom.computeVertexNormals();
+    return geom;
+  }
   const geom = new ExtrudeGeometry(shapes, {
     depth,
     bevelEnabled: false,
@@ -238,7 +250,7 @@ function centerAndExtrude(shapes: Shape[], depth: number): ExtrudeGeometry | nul
 }
 
 export interface GlyphBuild {
-  geometry: ExtrudeGeometry;
+  geometry: BufferGeometry;
   width: number;
   height: number;
 }

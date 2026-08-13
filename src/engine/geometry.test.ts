@@ -102,6 +102,15 @@ describe("glyph fit", () => {
     expect(cubeFit).toBeGreaterThan(octFit);
     expect(Math.min(...cube.map(faceInradius))).toBeGreaterThan(7);
   });
+
+  it("points every face normal outward", () => {
+    for (const type of [...TYPES, "d2"] as const) {
+      const faces = extractFaces(createDieGeometry(type, 16), type);
+      for (const face of faces) {
+        expect(face.center.dot(face.normal)).toBeGreaterThan(0.2);
+      }
+    }
+  });
 });
 
 describe("face centers", () => {

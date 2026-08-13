@@ -213,6 +213,7 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     const centroid = new Vector3();
     for (const v of vertices) centroid.add(v);
     centroid.divideScalar(vertices.length || 1);
+    if (centroid.dot(normal) < 0) normal.negate();
 
     let area = 0;
     for (const tri of group) {
