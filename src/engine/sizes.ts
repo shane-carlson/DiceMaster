@@ -49,10 +49,10 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
 };
 
 export const DEFAULT_DEPTH: Record<SizeFormatId, number> = {
-  mini: 0.55,
-  standard: 0.7,
-  chonk: 0.9,
-  giant: 1.15,
+  mini: 0.605,
+  standard: 0.77,
+  chonk: 0.99,
+  giant: 1.265,
 };
 
 export const DEFAULT_BUMPER: Record<SizeFormatId, number> = {

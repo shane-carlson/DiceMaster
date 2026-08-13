@@ -18,7 +18,7 @@ function blankProject(): Project {
     version: 1,
     name: "Unnamed Set",
     fontId: "oswald",
-    globalDepth: 0.7,
+    globalDepth: 0.77,
     globalFontScale: 1,
     dice: diceFromTemplate(templateById("standard-polyhedral")!),
     logos: [],
