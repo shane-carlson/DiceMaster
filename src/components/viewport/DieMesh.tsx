@@ -2,10 +2,8 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
-  Color,
   DoubleSide,
   Mesh as ThreeMesh,
-  MeshStandardMaterial,
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { DieBuild, PlacedGlyph } from "../../engine/buildDie";
@@ -13,18 +11,6 @@ import { triangleToFaceMap } from "../../engine/faces";
 
 function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   const ref = useRef<ThreeMesh>(null);
-  const material = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: new Color(color),
-        roughness: 0.48,
-        metalness: 0.08,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
-      }),
-    [color],
-  );
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -33,7 +19,18 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
     mesh.matrixAutoUpdate = false;
   }, [glyph.matrix]);
 
-  return <mesh ref={ref} geometry={glyph.geometry} material={material} />;
+  return (
+    <mesh ref={ref} geometry={glyph.geometry}>
+      <meshStandardMaterial
+        color={color}
+        roughness={0.45}
+        metalness={0}
+        polygonOffset
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
+      />
+    </mesh>
+  );
 }
 
 export function DieMesh({
@@ -51,18 +48,6 @@ export function DieMesh({
   onSelectFace: (index: number) => void;
   onSelectDie: () => void;
 }) {
-  const bodyMat = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: new Color(color),
-        roughness: 0.4,
-        metalness: 0.22,
-        emissive: new Color(selected ? "#4a3414" : "#000000"),
-        emissiveIntensity: selected ? 0.16 : 0,
-      }),
-    [color, selected],
-  );
-
   const faceMap = useMemo(() => triangleToFaceMap(build.faces), [build.faces]);
 
   const highlight = useMemo(() => {
@@ -99,13 +84,16 @@ export function DieMesh({
 
   return (
     <group>
-      <mesh
-        geometry={build.body}
-        material={bodyMat}
-        onClick={onClick}
-        castShadow
-        receiveShadow
-      />
+      <mesh geometry={build.body} onClick={onClick} castShadow receiveShadow>
+        <meshStandardMaterial
+          color={color}
+          roughness={0.38}
+          metalness={0.02}
+          flatShading
+          emissive={selected ? "#5c4018" : "#110a06"}
+          emissiveIntensity={selected ? 0.28 : 0.04}
+        />
+      </mesh>
       {build.glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}

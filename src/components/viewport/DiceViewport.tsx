@@ -1,10 +1,12 @@
 import { Suspense, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
+import { ACESFilmicToneMapping } from "three";
 import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
 import { DieMesh } from "./DieMesh";
+import { SceneLights } from "./SceneLights";
 import type { DieInstance } from "../../engine/types";
 
 function PlacedDie({
@@ -60,21 +62,13 @@ export function DiceViewport({ font }: { font: Font | null }) {
     <div className="viewport">
       <Canvas
         shadows
-        camera={{ position: [0, 28, 62], fov: 35, near: 0.1, far: 400 }}
+        dpr={[1, 2]}
+        gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.45 }}
+        camera={{ position: [0, 28, 62], fov: 35, near: 0.1, far: 500 }}
         onPointerMissed={() => undefined}
       >
         <color attach="background" args={["#0c0907"]} />
-        <hemisphereLight args={["#6a5a44", "#1a100c", 0.55]} />
-        <spotLight
-          position={[40, 70, 30]}
-          angle={0.45}
-          penumbra={0.5}
-          intensity={2.2}
-          color="#f0d7a0"
-          castShadow
-        />
-        <pointLight position={[-30, 20, -20]} intensity={0.7} color="#6e4d9e" />
-        <pointLight position={[10, -10, 40]} intensity={0.35} color="#9a2f2f" />
+        <SceneLights />
         <Suspense fallback={null}>
           {font &&
             shown.map((die, i) => (
@@ -91,7 +85,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
         <ContactShadows position={[0, -18, 0]} opacity={0.45} scale={180} blur={2.4} far={40} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -18.02, 0]} receiveShadow>
           <circleGeometry args={[22, 64]} />
-          <meshStandardMaterial color="#1a120c" metalness={0.3} roughness={0.7} />
+          <meshStandardMaterial color="#1a120c" metalness={0} roughness={0.85} />
         </mesh>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -17.96, 0]}>
           <ringGeometry args={[16, 16.35, 64]} />

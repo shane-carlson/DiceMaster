@@ -106,12 +106,12 @@ export const SIZE_FORMAT_LABELS: Record<SizeFormatId, string> = {
 };
 
 export const DIE_COLORS = [
-  "#6b1d1d",
-  "#1e3d2f",
-  "#1a2744",
-  "#4a2c6a",
-  "#5c3b12",
-  "#2c2c34",
-  "#7a1f3d",
-  "#0e4b5c",
+  "#b84343",
+  "#3d7a5c",
+  "#3a5a9a",
+  "#7a52b0",
+  "#c4893a",
+  "#5c5c68",
+  "#c44a6e",
+  "#2a8a9a",
 ] as const;
