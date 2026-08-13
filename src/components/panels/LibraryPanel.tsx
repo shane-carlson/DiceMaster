@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import { arrayBufferToBase64 } from "../../engine/fonts";
 import { uid } from "../../engine/id";
 import { BUILTIN_FONTS } from "../../engine/fonts";
@@ -96,6 +96,7 @@ export function LibraryPanel() {
           <div key={die.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 4 }}>
             <button
               className={`die-item ${die.id === selectedDieId ? "active" : ""}`}
+              style={{ "--die-color": die.color } as CSSProperties}
               onClick={() => focusDie(die.id)}
             >
               <span>

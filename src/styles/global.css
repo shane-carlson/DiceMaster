@@ -418,16 +418,28 @@ img {
 }
 
 .die-item {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px;
   align-items: center;
-  padding: 8px 10px;
+  padding: 8px 10px 8px 16px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: var(--panel-2);
   text-align: left;
   width: 100%;
+  overflow: hidden;
+}
+
+.die-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--die-color, var(--gold));
 }
 
 .die-item.active {
