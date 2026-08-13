@@ -46,6 +46,7 @@ export interface WorkshopState {
   selectDie: (id: string | null) => void;
   selectDieFace: (id: string, faceIndex: number) => void;
   focusDie: (id: string) => void;
+  focusDieFace: (id: string, faceIndex: number) => void;
   selectFace: (index: number | null) => void;
   updateDie: (id: string, patch: Partial<DieInstance>) => void;
   setSizeFormat: (id: string, format: SizeFormatId | "custom", sizeMm?: number) => void;
@@ -177,6 +178,12 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
     set((s) => ({
       selectedDieId: id,
       selectedFaceIndex: null,
+      focusGeneration: s.focusGeneration + 1,
+    })),
+  focusDieFace: (id, faceIndex) =>
+    set((s) => ({
+      selectedDieId: id,
+      selectedFaceIndex: faceIndex,
       focusGeneration: s.focusGeneration + 1,
     })),
   selectFace: (index) => set({ selectedFaceIndex: index }),

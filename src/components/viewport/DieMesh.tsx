@@ -82,10 +82,10 @@ export function DieMesh({
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    onSelectDie();
     const local = e.object.worldToLocal(e.point.clone());
     const mapped = closestFaceIndex(local, build.faces);
     if (mapped !== null) onSelectFace(mapped);
+    else onSelectDie();
   };
 
   return (

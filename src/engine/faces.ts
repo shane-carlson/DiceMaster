@@ -297,6 +297,15 @@ function monotoneHull2D(pts: Pt2[]): Pt2[] {
   return [...lower, ...upper];
 }
 
+/** Convex outline of a face in its tangent/bitangent plane, CCW around the center. */
+export function faceOutline2D(face: DieFace): { x: number; y: number }[] {
+  const pts = project2D(face.vertices, face.center, face.tangent, face.bitangent);
+  if (pts.length <= 2) return pts;
+  const hull = monotoneHull2D(pts);
+  if (hull.length >= 3) return hull;
+  return [...pts].sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
+}
+
 function triangleIncenter2(a: Pt2, b: Pt2, c: Pt2): Pt2 {
   const la = Math.hypot(b.x - c.x, b.y - c.y);
   const lb = Math.hypot(a.x - c.x, a.y - c.y);

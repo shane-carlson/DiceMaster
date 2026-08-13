@@ -1,4 +1,4 @@
-import { extractFaces } from "./faces";
+import { extractFaces, faceOutline2D } from "./faces";
 import { createDieGeometry } from "./geometry";
 import { numberFaces } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
@@ -30,10 +30,7 @@ function projectFace(die: DieInstance): FacePreview[] {
 
   return faces.map((face) => {
     const settings = die.faces[face.index];
-    const pts = face.vertices.map((v) => {
-      const d = v.clone().sub(face.center);
-      return { x: d.dot(face.tangent), y: d.dot(face.bitangent) };
-    });
+    const pts = faceOutline2D(face);
     let marks: FaceMarkPreview[] = [];
     const kind = settings?.primary.kind ?? "number";
     if (kind === "blank") {

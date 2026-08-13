@@ -87,7 +87,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
   const setGlobalFontScale = useProjectStore((s) => s.setGlobalFontScale);
   const setFaceKind = useProjectStore((s) => s.setFaceKind);
   const copyFaceToAll = useProjectStore((s) => s.copyFaceToAll);
-  const selectDieFace = useProjectStore((s) => s.selectDieFace);
+  const focusDieFace = useProjectStore((s) => s.focusDieFace);
   const fontRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState<{ dieId: string; faceIndex: number } | null>(null);
 
@@ -185,7 +185,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
             face={face}
             selected={face.dieId === selectedDieId && face.faceIndex === selectedFaceIndex}
             onClick={() => {
-              selectDieFace(face.dieId, face.faceIndex);
+              focusDieFace(face.dieId, face.faceIndex);
             }}
           />
         ))}
