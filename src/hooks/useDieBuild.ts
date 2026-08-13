@@ -3,6 +3,17 @@ import type { Font } from "opentype.js";
 import { buildDie, type DieBuild } from "../engine/buildDie";
 import type { DieInstance, LogoAsset } from "../engine/types";
 
+let buildQueue: Promise<void> = Promise.resolve();
+
+function enqueueBuild<T>(work: () => Promise<T>): Promise<T> {
+  const run = buildQueue.then(work, work);
+  buildQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export function useDieBuild(
   die: DieInstance | undefined,
   font: Font | null,
@@ -22,7 +33,7 @@ export function useDieBuild(
     let alive = true;
     setBusy(true);
     const parsed = JSON.parse(key) as DieInstance;
-    buildDie(parsed, font, logos, globalScale, "preview")
+    enqueueBuild(() => buildDie(parsed, font, logos, globalScale, "preview"))
       .then((next) => {
         if (alive) setBuild(next);
       })

@@ -1,14 +1,21 @@
-import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
-import { ACESFilmicToneMapping, PerspectiveCamera, Vector3 } from "three";
+import { ACESFilmicToneMapping, BufferGeometry, PerspectiveCamera, Vector3 } from "three";
 import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
 import { DieMesh } from "./DieMesh";
 import { SceneLights } from "./SceneLights";
 import type { DieInstance } from "../../engine/types";
-import { dieViewPose, faceViewPose, interpolatePose } from "../../engine/cameraFocus";
+import {
+  applyViewPose,
+  dieViewPose,
+  faceViewPose,
+  finiteVec,
+  interpolatePose,
+  type ViewPose,
+} from "../../engine/cameraFocus";
 import { usesVertexNumerals } from "../../engine/d4";
 import { extractFaces } from "../../engine/faces";
 import { createDieGeometry } from "../../engine/geometry";
@@ -41,6 +48,40 @@ function FrameCamera({ y, z, fov }: { y: number; z: number; fov: number }) {
   return null;
 }
 
+function currentUp(camera: { up: Vector3 }): Vector3 {
+  if (finiteVec(camera.up) && camera.up.lengthSq() > 1e-8) {
+    return camera.up.clone().normalize();
+  }
+  return new Vector3(0, 1, 0);
+}
+
+function poseForSelection(
+  dice: DieInstance[],
+  spacing: number,
+  selectedDieId: string,
+  selectedFaceIndex: number | null,
+): ViewPose | null {
+  const idx = dice.findIndex((d) => d.id === selectedDieId);
+  if (idx < 0) return null;
+  const die = dice[idx];
+  const origin = dieWorldPosition(idx, dice.length, spacing);
+  if (selectedFaceIndex === null) return dieViewPose(origin, die.sizeMm);
+  let geom: BufferGeometry | undefined;
+  try {
+    geom = createDieGeometry(die.type, die.sizeMm);
+    const face = extractFaces(geom, die.type)[selectedFaceIndex];
+    if (!face) return dieViewPose(origin, die.sizeMm);
+    const rot = usesVertexNumerals(die.type)
+      ? 0
+      : (die.faces[selectedFaceIndex]?.primary.rotation ?? 0);
+    return faceViewPose(origin, face, die.sizeMm, rot);
+  } catch {
+    return dieViewPose(origin, die.sizeMm);
+  } finally {
+    geom?.dispose();
+  }
+}
+
 function FocusOnDie({
   dice,
   spacing,
@@ -52,67 +93,47 @@ function FocusOnDie({
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const focusGeneration = useProjectStore((s) => s.focusGeneration);
-  const anim = useRef<{
-    from: { target: Vector3; position: Vector3; up: Vector3 };
-    to: { target: Vector3; position: Vector3; up: Vector3 };
-    t: number;
-  } | null>(null);
+  const latest = useRef({ dice, spacing, selectedDieId, selectedFaceIndex, camera, controls });
+  latest.current = { dice, spacing, selectedDieId, selectedFaceIndex, camera, controls };
+  const anim = useRef<{ from: ViewPose; to: ViewPose; started: number } | null>(null);
 
   useLayoutEffect(() => {
-    if (!focusGeneration || !selectedDieId) return;
-    const idx = dice.findIndex((d) => d.id === selectedDieId);
-    if (idx < 0) return;
-    const orbit = controls as OrbitLike | null;
-    if (!orbit?.target) return;
-    const die = dice[idx];
-    const origin = dieWorldPosition(idx, dice.length, spacing);
-    let pose = dieViewPose(origin, die.sizeMm);
-    if (selectedFaceIndex !== null) {
-      const geom = createDieGeometry(die.type, die.sizeMm);
-      const faces = extractFaces(geom, die.type);
-      const face = faces[selectedFaceIndex];
-      geom.dispose();
-      if (face) {
-        const rot = usesVertexNumerals(die.type)
-          ? 0
-          : (die.faces[selectedFaceIndex]?.primary.rotation ?? 0);
-        pose = faceViewPose(origin, face, die.sizeMm, rot);
-      }
-    }
+    if (!focusGeneration) return;
+    const snap = latest.current;
+    const orbit = snap.controls as OrbitLike | null;
+    if (!snap.selectedDieId || !orbit?.target) return;
+    const to = poseForSelection(snap.dice, snap.spacing, snap.selectedDieId, snap.selectedFaceIndex);
+    if (!to) return;
     anim.current = {
       from: {
-        position: camera.position.clone(),
+        position: snap.camera.position.clone(),
         target: orbit.target.clone(),
-        up: camera.up.clone().normalize(),
+        up: currentUp(snap.camera),
       },
-      to: pose,
-      t: 0,
+      to: {
+        position: to.position.clone(),
+        target: to.target.clone(),
+        up: to.up.clone(),
+      },
+      started: performance.now(),
     };
-    orbit.enabled = false;
-    return () => {
-      orbit.enabled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusGeneration, camera, controls]);
+  }, [focusGeneration]);
 
-  useFrame((_, dt) => {
+  useFrame(() => {
     const a = anim.current;
-    const orbit = controls as OrbitLike | null;
+    const orbit = latest.current.controls as OrbitLike | null;
+    const cam = latest.current.camera;
     if (!a || !orbit?.target) return;
-    a.t = Math.min(1, a.t + dt / 0.52);
-    const k = 1 - (1 - a.t) ** 3;
+    if (orbit.enabled === false) orbit.enabled = true;
+    const t = Math.min(1, (performance.now() - a.started) / 520);
+    const k = 1 - (1 - t) ** 3;
     const pose = interpolatePose(a.from, a.to, k);
-    camera.up.copy(pose.up);
-    camera.position.copy(pose.position);
-    orbit.target.copy(pose.target);
-    camera.lookAt(orbit.target);
-    if (a.t >= 1) {
-      camera.up.copy(a.to.up);
-      camera.position.copy(a.to.position);
-      camera.lookAt(a.to.target);
+    if (applyViewPose(cam, pose)) {
+      orbit.target.copy(pose.target);
+    }
+    if (t >= 1) {
+      applyViewPose(cam, a.to);
       orbit.target.copy(a.to.target);
-      orbit.enabled = true;
-      orbit.update();
       anim.current = null;
     }
   }, 1);
@@ -167,18 +188,31 @@ export function DiceViewport({ font }: { font: Font | null }) {
   const dice = useProjectStore((s) => s.project.dice);
   const frameKey = dice.map((d) => `${d.id}:${Math.round(d.sizeMm)}:${d.type}`).join("|");
   const layout = useMemo(() => layoutSet(dice), [dice, frameKey]);
+  const [glKey, setGlKey] = useState(0);
+  const recovers = useRef(0);
 
   return (
     <div className="viewport">
       <Canvas
+        key={glKey}
         shadows
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.45 }}
         camera={{
           position: [0, layout.cameraY, layout.cameraZ],
           fov: layout.fov,
           near: 0.1,
           far: 4000,
+        }}
+        onCreated={({ gl }) => {
+          const el = gl.domElement;
+          const onLost = (event: Event) => {
+            event.preventDefault();
+            if (recovers.current >= 2) return;
+            recovers.current += 1;
+            window.setTimeout(() => setGlKey((k) => k + 1), 250);
+          };
+          el.addEventListener("webglcontextlost", onLost, { once: true });
         }}
         onPointerMissed={() => undefined}
       >
@@ -218,6 +252,8 @@ export function DiceViewport({ font }: { font: Font | null }) {
           makeDefault
           minDistance={layout.minDistance}
           maxDistance={layout.maxDistance}
+          minPolarAngle={0.12}
+          maxPolarAngle={Math.PI - 0.12}
         />
         <FocusOnDie dice={dice} spacing={layout.spacing} />
       </Canvas>
