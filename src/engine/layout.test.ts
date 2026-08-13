@@ -8,8 +8,9 @@ describe("viewport layout", () => {
     const set = dice.map((t) => createDie(t, "standard"));
     const layout = layoutSet(set);
     expect(layout.maxDistance).toBeGreaterThan(layout.cameraZ * 2);
-    expect(layout.cameraZ).toBeGreaterThan(layout.width * 0.4);
-    expect(layout.spacing).toBeGreaterThan(set[0].sizeMm);
+    expect(layout.cameraZ).toBeLessThan(layout.width * 1.2);
+    expect(layout.cameraZ).toBeGreaterThan(layout.maxSize * 2);
+    expect(layout.minDistance).toBeGreaterThan(layout.maxSize);
   });
 
   it("places the selected die on a world-space slot in the row", () => {

@@ -1,7 +1,7 @@
-import { Component, useLayoutEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import { Component, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { ACESFilmicToneMapping, BufferGeometry, PerspectiveCamera, Vector3 } from "three";
+import { ACESFilmicToneMapping, BufferGeometry, Vector3 } from "three";
 import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
@@ -25,6 +25,22 @@ type OrbitLike = {
   target: Vector3;
 };
 
+function AimAtOrigin() {
+  const { camera, controls } = useThree();
+  const done = useRef(false);
+  useFrame(() => {
+    if (done.current) return;
+    camera.up.set(0, 1, 0);
+    camera.lookAt(0, 0, 0);
+    const orbit = controls as { target: Vector3 } | null;
+    if (orbit?.target) {
+      orbit.target.set(0, 0, 0);
+      done.current = true;
+    }
+  });
+  return null;
+}
+
 class ViewportErrorBoundary extends Component<
   { children: ReactNode },
   { message: string | null }
@@ -47,22 +63,6 @@ class ViewportErrorBoundary extends Component<
     }
     return this.props.children;
   }
-}
-
-function FrameCamera({ y, z, fov }: { y: number; z: number; fov: number }) {
-  const { camera } = useThree();
-  useLayoutEffect(() => {
-    camera.up.set(0, 1, 0);
-    camera.position.set(0, y, z);
-    if (camera instanceof PerspectiveCamera) {
-      camera.fov = fov;
-      camera.near = 0.1;
-      camera.far = 4000;
-      camera.updateProjectionMatrix();
-    }
-    camera.lookAt(0, 0, 0);
-  }, [camera, y, z, fov]);
-  return null;
 }
 
 function currentUp(camera: { up: Vector3 }): Vector3 {
@@ -113,33 +113,32 @@ function FocusOnDie({
   const latest = useRef({ dice, spacing, selectedDieId, selectedFaceIndex, camera, controls });
   latest.current = { dice, spacing, selectedDieId, selectedFaceIndex, camera, controls };
   const anim = useRef<{ from: ViewPose; to: ViewPose; started: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!focusGeneration) return;
-    const snap = latest.current;
-    const orbit = snap.controls as OrbitLike | null;
-    if (!snap.selectedDieId || !orbit?.target) return;
-    const to = poseForSelection(snap.dice, snap.spacing, snap.selectedDieId, snap.selectedFaceIndex);
-    if (!to) return;
-    anim.current = {
-      from: {
-        position: snap.camera.position.clone(),
-        target: orbit.target.clone(),
-        up: currentUp(snap.camera),
-      },
-      to: {
-        position: to.position.clone(),
-        target: to.target.clone(),
-        up: to.up.clone(),
-      },
-      started: performance.now(),
-    };
-  }, [focusGeneration]);
+  const played = useRef(0);
 
   useFrame(() => {
+    const snap = latest.current;
+    const orbit = snap.controls as OrbitLike | null;
+    if (focusGeneration && focusGeneration !== played.current && snap.selectedDieId && orbit?.target) {
+      const to = poseForSelection(snap.dice, snap.spacing, snap.selectedDieId, snap.selectedFaceIndex);
+      if (to) {
+        anim.current = {
+          from: {
+            position: snap.camera.position.clone(),
+            target: orbit.target.clone(),
+            up: currentUp(snap.camera),
+          },
+          to: {
+            position: to.position.clone(),
+            target: to.target.clone(),
+            up: to.up.clone(),
+          },
+          started: performance.now(),
+        };
+      }
+      played.current = focusGeneration;
+    }
     const a = anim.current;
-    const orbit = latest.current.controls as OrbitLike | null;
-    const cam = latest.current.camera;
+    const cam = snap.camera;
     if (!a || !orbit?.target) return;
     const t = Math.min(1, (performance.now() - a.started) / 520);
     const k = 1 - (1 - t) ** 3;
@@ -150,7 +149,7 @@ function FocusOnDie({
       orbit.target.copy(a.to.target);
       anim.current = null;
     }
-  }, 1);
+  });
 
   return null;
 }
@@ -210,18 +209,27 @@ export function DiceViewport({ font }: { font: Font | null }) {
   return (
     <div className="viewport">
       <ViewportErrorBoundary>
+        <div className="viewport-stage">
         <Canvas
           dpr={1}
+          resize={{ offsetSize: true, debounce: 0 }}
           gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.45 }}
           camera={{
             position: [0, layout.cameraY, layout.cameraZ],
             fov: layout.fov,
-            near: 0.1,
+            near: 0.5,
             far: 4000,
           }}
+          style={{ width: "100%", height: "100%", display: "block" }}
+          onCreated={({ camera }) => {
+            camera.position.set(0, layout.cameraY, layout.cameraZ);
+            camera.up.set(0, 1, 0);
+            camera.lookAt(0, 0, 0);
+            camera.updateMatrixWorld();
+          }}
         >
+          <AimAtOrigin />
           <color attach="background" args={["#0c0907"]} />
-          <FrameCamera y={layout.cameraY} z={layout.cameraZ} fov={layout.fov} />
           <SceneLights />
           {dice.map((die, i) => (
             <PlacedDie
@@ -242,13 +250,14 @@ export function DiceViewport({ font }: { font: Font | null }) {
             <meshBasicMaterial color="#d7b15a" />
           </mesh>
           <OrbitControls
-            enablePan
             makeDefault
+            enablePan
             minDistance={layout.minDistance}
             maxDistance={layout.maxDistance}
           />
           <FocusOnDie dice={dice} spacing={layout.spacing} />
         </Canvas>
+        </div>
       </ViewportErrorBoundary>
       <div className="viewport-hint">
         Drag to orbit · Scroll to zoom · Pick a face to zoom in with the numeral upright
