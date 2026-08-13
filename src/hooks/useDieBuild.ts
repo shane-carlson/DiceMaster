@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Font } from "opentype.js";
-import { bakeEngraving, buildDie, type DieBuild } from "../engine/buildDie";
+import { buildDie, type DieBuild } from "../engine/buildDie";
 import type { DieInstance, LogoAsset } from "../engine/types";
 
 export function useDieBuild(
@@ -22,31 +22,19 @@ export function useDieBuild(
     let alive = true;
     setBusy(true);
     const parsed = JSON.parse(key) as DieInstance;
-    const timer = window.setTimeout(() => {
-      buildDie(parsed, font, logos, globalScale, "preview")
-        .then((next) => {
-          try {
-            const carved = bakeEngraving(next, parsed.engraveMode);
-            return { ...next, body: carved, carved: true };
-          } catch (err) {
-            console.warn("CSG preview failed; showing uncut mesh", err);
-            return next;
-          }
-        })
-        .then((next) => {
-          if (alive) setBuild(next);
-        })
-        .catch((err) => {
-          console.error(err);
-          if (alive) setBuild(null);
-        })
-        .finally(() => {
-          if (alive) setBusy(false);
-        });
-    }, 80);
+    buildDie(parsed, font, logos, globalScale, "preview")
+      .then((next) => {
+        if (alive) setBuild(next);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (alive) setBuild(null);
+      })
+      .finally(() => {
+        if (alive) setBusy(false);
+      });
     return () => {
       alive = false;
-      window.clearTimeout(timer);
     };
   }, [die, font, key, logos, logoKey, globalScale]);
 

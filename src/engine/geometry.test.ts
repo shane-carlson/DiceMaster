@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractFaces } from "./faces";
+import { extractFaces, faceInradius, glyphFitSize } from "./faces";
 import { createDieGeometry } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
@@ -70,5 +70,29 @@ describe("numbering", () => {
       expect(opp).toBeTruthy();
       expect(numericLabel(face.label) + numericLabel(opp!.label)).toBe(9);
     }
+  });
+});
+
+describe("glyph fit", () => {
+  it("sizes D8 numerals inside the triangular inradius", () => {
+    const geom = createDieGeometry("d8", 16);
+    const faces = extractFaces(geom, "d8");
+    expect(faces.length).toBe(8);
+    for (const face of faces) {
+      const r = faceInradius(face);
+      const fit = glyphFitSize(face);
+      expect(r).toBeGreaterThan(2);
+      expect(fit).toBeLessThan(2 * r);
+      expect(fit).toBeGreaterThan(r * 0.6);
+    }
+  });
+
+  it("gives cube faces a larger fit than octahedron faces of the same die size", () => {
+    const cube = extractFaces(createDieGeometry("d6", 16), "d6");
+    const oct = extractFaces(createDieGeometry("d8", 16), "d8");
+    const cubeFit = Math.min(...cube.map(glyphFitSize));
+    const octFit = Math.max(...oct.map(glyphFitSize));
+    expect(cubeFit).toBeGreaterThan(octFit);
+    expect(Math.min(...cube.map(faceInradius))).toBeGreaterThan(7);
   });
 });

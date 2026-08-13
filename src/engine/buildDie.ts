@@ -13,27 +13,17 @@ import {
   SUBTRACTION,
 } from "three-bvh-csg";
 import type { Font } from "opentype.js";
-import { extractFaces, type DieFace } from "./faces";
+import { extractFaces, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
 import { buildGlyphGeometry, pipPositions } from "./glyphs";
 import { numberFaces, type NumberedFace } from "./numbering";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
 
-const FACE_GLYPH_SPAN: Record<DieInstance["type"], number> = {
-  d2: 0.5,
-  d4: 0.36,
-  d4crystal: 0.3,
-  d6: 0.52,
-  d8: 0.38,
-  d10: 0.34,
-  d00: 0.3,
-  d12: 0.36,
-  d20: 0.34,
-};
-
 export interface PlacedGlyph {
   geometry: BufferGeometry;
   matrix: Matrix4;
+  cutter: BufferGeometry;
+  cutterMatrix: Matrix4;
   faceIndex: number;
   role: "primary" | "emblem" | "pip";
   depth: number;
@@ -113,33 +103,53 @@ async function placedFromGlyph(
   role: PlacedGlyph["role"],
 ): Promise<PlacedGlyph | null> {
   const depth = glyph.depth ?? die.engravingDepth;
-  const span = die.sizeMm * FACE_GLYPH_SPAN[die.type] * die.fontScale * globalScale;
-  const built = await buildGlyphGeometry(glyph, font, logos, span, Math.max(depth * 2.6, 1));
-  if (!built) return null;
-  const ox = glyph.offsetX * span * 0.55;
-  const oy = glyph.offsetY * span * 0.55;
-  // Emboss sits outward. Engrave cutters are shifted inward so most of the
-  // volume is inside the die (preview overlays no longer read as raised type).
-  const zOff = die.engraveMode === "emboss" ? depth * 0.55 : -depth * 0.45;
-  const matrix = faceMatrix(face, zOff, glyph.rotation, ox, oy);
-  return { geometry: built.geometry, matrix, faceIndex: face.index, role, depth };
+  const fit = glyphFitSize(face) * die.fontScale * globalScale;
+  const preview = await buildGlyphGeometry(glyph, font, logos, fit, 0.08);
+  const cutter = await buildGlyphGeometry(
+    glyph,
+    font,
+    logos,
+    fit,
+    Math.max(depth * 2.4, 0.9),
+  );
+  if (!preview || !cutter) return null;
+  const ox = glyph.offsetX * fit * 0.45;
+  const oy = glyph.offsetY * fit * 0.45;
+  const previewMatrix = faceMatrix(face, 0.05, glyph.rotation, ox, oy);
+  const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.3;
+  const cutterMatrix = faceMatrix(face, cutterZ, glyph.rotation, ox, oy);
+  return {
+    geometry: preview.geometry,
+    matrix: previewMatrix,
+    cutter: cutter.geometry,
+    cutterMatrix,
+    faceIndex: face.index,
+    role,
+    depth,
+  };
 }
 
 function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const value = Number(face.label);
   if (!Number.isFinite(value) || value < 1 || value > 6) return [];
-  const span = die.sizeMm * 0.16;
-  const radius = die.sizeMm * 0.055 * die.fontScale;
-  const depth = die.engravingDepth * 2.2;
+  const fit = glyphFitSize(face);
+  const span = fit * 0.28;
+  const radius = fit * 0.09 * die.fontScale;
+  const cutterDepth = die.engravingDepth * 2.2;
   const pts = pipPositions(value, span);
   return pts.map((p) => {
-    const geom = new CylinderGeometry(radius, radius, depth, 20);
-    geom.rotateX(Math.PI / 2);
-    const zOff = die.engraveMode === "emboss" ? die.engravingDepth * 0.4 : -die.engravingDepth * 0.45;
-    const matrix = faceMatrix(face, zOff, 0, p.x, p.y);
+    const preview = new CylinderGeometry(radius, radius, 0.08, 20);
+    preview.rotateX(Math.PI / 2);
+    const cutter = new CylinderGeometry(radius, radius, cutterDepth, 20);
+    cutter.rotateX(Math.PI / 2);
+    const previewMatrix = faceMatrix(face, 0.05, 0, p.x, p.y);
+    const cutterZ = die.engraveMode === "emboss" ? die.engravingDepth * 0.4 : -die.engravingDepth * 0.3;
+    const cutterMatrix = faceMatrix(face, cutterZ, 0, p.x, p.y);
     return {
-      geometry: geom,
-      matrix,
+      geometry: preview,
+      matrix: previewMatrix,
+      cutter,
+      cutterMatrix,
       faceIndex: face.index,
       role: "pip" as const,
       depth: die.engravingDepth,
@@ -226,8 +236,8 @@ export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"])
   const op = mode === "emboss" ? ADDITION : SUBTRACTION;
 
   const makeCutter = (glyph: PlacedGlyph) => {
-    const cutter = new Brush(glyph.geometry.clone());
-    cutter.applyMatrix4(glyph.matrix);
+    const cutter = new Brush((glyph.cutter ?? glyph.geometry).clone());
+    cutter.applyMatrix4(glyph.cutterMatrix ?? glyph.matrix);
     cutter.updateMatrixWorld();
     return cutter;
   };

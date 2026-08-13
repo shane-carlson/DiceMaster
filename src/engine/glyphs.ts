@@ -198,6 +198,24 @@ export async function buildGlyphGeometry(
 
   if (shapes.length === 0) return null;
 
+  const extents = shapes.map((shape) => {
+    const pts = shape.getPoints(8);
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const p of pts) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+    return Math.max(maxX - minX, maxY - minY, 0);
+  });
+  const median = [...extents].sort((a, b) => a - b)[Math.floor(extents.length / 2)] || 1;
+  shapes = shapes.filter((_, i) => extents[i] < median * 8 && extents[i] > median * 0.01);
+  if (shapes.length === 0) return null;
+
   const probe = new ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
   probe.computeBoundingBox();
   const bb = probe.boundingBox;
@@ -211,8 +229,8 @@ export async function buildGlyphGeometry(
   }
   const scaled = shapes.map((shape) => {
     const next = new Shape();
-    const pts = shape.getPoints(12);
-    const holes = shape.holes.map((hole) => hole.getPoints(12));
+    const pts = shape.getPoints(20);
+    const holes = shape.holes.map((hole) => hole.getPoints(20));
     if (pts.length === 0) return shape;
     next.moveTo(pts[0].x * scale, pts[0].y * scale);
     for (let i = 1; i < pts.length; i++) {

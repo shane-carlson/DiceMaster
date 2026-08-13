@@ -47,6 +47,14 @@ function makeFrame(
     }
     up = farthest.clone().sub(center);
     up.sub(n.clone().multiplyScalar(up.dot(n)));
+  } else if (vertices.length === 3) {
+    // Point "up" at the highest vertex so triangular numerals sit in the face.
+    let top = vertices[0];
+    for (const v of vertices) {
+      if (v.y > top.y) top = v;
+    }
+    up = top.clone().sub(center);
+    up.sub(n.clone().multiplyScalar(up.dot(n)));
   } else {
     up = new Vector3(0, 1, 0);
     if (Math.abs(n.dot(up)) > 0.92) {
@@ -231,6 +239,72 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     f.index = idx;
   });
   return faces;
+}
+
+/** Distance from face center to the nearest boundary edge. */
+export function faceInradius(face: DieFace): number {
+  if (face.vertices.length < 3) {
+    return Math.sqrt(Math.max(face.area, 0.01) / Math.PI);
+  }
+  const hull = convexHull2D(face);
+  let peri = 0;
+  for (let i = 0; i < hull.length; i++) {
+    peri += hull[i].distanceTo(hull[(i + 1) % hull.length]);
+  }
+  if (peri < 1e-6) return 0.5;
+  return (2 * face.area) / peri;
+}
+
+/** Max glyph AABB so the mark sits inside the face with a margin. */
+export function glyphFitSize(face: DieFace): number {
+  const r = faceInradius(face);
+  if (!Number.isFinite(r) || r <= 0) return 4;
+  const n = face.vertices.length;
+  const fill = n <= 3 ? 0.56 : n === 4 ? 0.68 : 0.62;
+  return 2 * r * fill;
+}
+
+function convexHull2D(face: DieFace): Vector3[] {
+  const t = face.tangent;
+  const b = face.bitangent;
+  const c = face.center;
+  const pts = face.vertices.map((v) => {
+    const d = v.clone().sub(c);
+    return { v, x: d.dot(t), y: d.dot(b) };
+  });
+  pts.sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+  if (pts.length <= 2) return face.vertices.map((v) => v.clone());
+
+  const cross = (
+    o: { x: number; y: number },
+    a: { x: number; y: number },
+    p: { x: number; y: number },
+  ) => (a.x - o.x) * (p.y - o.y) - (a.y - o.y) * (p.x - o.x);
+
+  const lower: typeof pts = [];
+  for (const p of pts) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: typeof pts = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper].map((p) => p.v.clone());
 }
 
 export function triangleToFaceMap(faces: DieFace[]): Map<number, number> {
