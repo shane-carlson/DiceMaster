@@ -1,5 +1,15 @@
 import type { DieInstance } from "./types";
 
+/** World-space origin of a die in the workshop row. */
+export function dieWorldPosition(
+  index: number,
+  count: number,
+  spacing: number,
+): [number, number, number] {
+  if (count <= 1) return [0, 0, 0];
+  return [(index - (count - 1) / 2) * spacing, 0, 0];
+}
+
 export function layoutSet(dice: DieInstance[]) {
   const maxSize = dice.reduce((m, d) => Math.max(m, d.sizeMm), 16);
   const spacing = maxSize * 1.2;

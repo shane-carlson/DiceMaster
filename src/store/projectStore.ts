@@ -33,6 +33,7 @@ export interface WorkshopState {
   project: Project;
   selectedDieId: string | null;
   selectedFaceIndex: number | null;
+  focusGeneration: number;
   hydrate: () => void;
   setName: (name: string) => void;
   setFontId: (fontId: string) => void;
@@ -43,6 +44,7 @@ export interface WorkshopState {
   removeDie: (id: string) => void;
   duplicateDie: (id: string) => void;
   selectDie: (id: string | null) => void;
+  focusDie: (id: string) => void;
   selectFace: (index: number | null) => void;
   updateDie: (id: string, patch: Partial<DieInstance>) => void;
   setSizeFormat: (id: string, format: SizeFormatId | "custom", sizeMm?: number) => void;
@@ -74,6 +76,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
   project: blankProject(),
   selectedDieId: null,
   selectedFaceIndex: null,
+  focusGeneration: 0,
 
   hydrate: () => {
     const local = loadLocal();
@@ -168,6 +171,12 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
     }),
 
   selectDie: (id) => set({ selectedDieId: id, selectedFaceIndex: null }),
+  focusDie: (id) =>
+    set((s) => ({
+      selectedDieId: id,
+      selectedFaceIndex: null,
+      focusGeneration: s.focusGeneration + 1,
+    })),
   selectFace: (index) => set({ selectedFaceIndex: index }),
 
   updateDie: (id, patch) =>

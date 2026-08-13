@@ -13,20 +13,32 @@ import type { GlyphSettings, LogoAsset } from "./types";
 export function shapesFromFont(font: Font, text: string, size: number): Shape[] {
   if (!text) return [];
   const path = font.getPath(text, 0, 0, size);
+  const bb = path.getBoundingBox();
+  const ox = Number.isFinite((bb.x1 + bb.x2) / 2) ? (bb.x1 + bb.x2) / 2 : 0;
+  const oy = Number.isFinite((bb.y1 + bb.y2) / 2) ? (bb.y1 + bb.y2) / 2 : 0;
+  const sx = (x: number) => x - ox;
+  const sy = (y: number) => -(y - oy);
   const shapePath = new ShapePath();
   for (const cmd of path.commands) {
     switch (cmd.type) {
       case "M":
-        shapePath.moveTo(cmd.x, -cmd.y);
+        shapePath.moveTo(sx(cmd.x), sy(cmd.y));
         break;
       case "L":
-        shapePath.lineTo(cmd.x, -cmd.y);
+        shapePath.lineTo(sx(cmd.x), sy(cmd.y));
         break;
       case "C":
-        shapePath.bezierCurveTo(cmd.x1, -cmd.y1, cmd.x2, -cmd.y2, cmd.x, -cmd.y);
+        shapePath.bezierCurveTo(
+          sx(cmd.x1),
+          sy(cmd.y1),
+          sx(cmd.x2),
+          sy(cmd.y2),
+          sx(cmd.x),
+          sy(cmd.y),
+        );
         break;
       case "Q":
-        shapePath.quadraticCurveTo(cmd.x1, -cmd.y1, cmd.x, -cmd.y);
+        shapePath.quadraticCurveTo(sx(cmd.x1), sy(cmd.y1), sx(cmd.x), sy(cmd.y));
         break;
       case "Z":
         if (shapePath.currentPath) shapePath.currentPath.closePath();

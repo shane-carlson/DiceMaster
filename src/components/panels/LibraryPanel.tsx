@@ -25,7 +25,7 @@ export function LibraryPanel() {
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const loadTemplate = useProjectStore((s) => s.loadTemplate);
   const addDie = useProjectStore((s) => s.addDie);
-  const selectDie = useProjectStore((s) => s.selectDie);
+  const focusDie = useProjectStore((s) => s.focusDie);
   const removeDie = useProjectStore((s) => s.removeDie);
   const duplicateDie = useProjectStore((s) => s.duplicateDie);
   const setFontId = useProjectStore((s) => s.setFontId);
@@ -96,7 +96,7 @@ export function LibraryPanel() {
           <div key={die.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 4 }}>
             <button
               className={`die-item ${die.id === selectedDieId ? "active" : ""}`}
-              onClick={() => selectDie(die.id)}
+              onClick={() => focusDie(die.id)}
             >
               <span>
                 {die.name}

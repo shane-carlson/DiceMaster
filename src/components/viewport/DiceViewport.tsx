@@ -1,17 +1,22 @@
-import { Suspense, useLayoutEffect, useMemo } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
-import { ACESFilmicToneMapping, PerspectiveCamera } from "three";
+import { ACESFilmicToneMapping, PerspectiveCamera, Vector3 } from "three";
 import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
 import { DieMesh } from "./DieMesh";
 import { SceneLights } from "./SceneLights";
 import type { DieInstance } from "../../engine/types";
-import { layoutSet } from "../../engine/layout";
+import { dieWorldPosition, layoutSet } from "../../engine/layout";
+
+type OrbitLike = {
+  target: Vector3;
+  update: () => void;
+};
 
 function FrameCamera({ y, z, fov }: { y: number; z: number; fov: number }) {
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   useLayoutEffect(() => {
     camera.position.set(0, y, z);
     if (camera instanceof PerspectiveCamera) {
@@ -20,7 +25,65 @@ function FrameCamera({ y, z, fov }: { y: number; z: number; fov: number }) {
     camera.far = 4000;
     camera.near = 0.1;
     camera.updateProjectionMatrix();
-  }, [camera, y, z, fov]);
+    const orbit = controls as OrbitLike | null;
+    if (orbit?.target) {
+      orbit.target.set(0, 0, 0);
+      orbit.update();
+    }
+  }, [camera, controls, y, z, fov]);
+  return null;
+}
+
+function FocusOnDie({
+  dice,
+  spacing,
+}: {
+  dice: DieInstance[];
+  spacing: number;
+}) {
+  const { camera, controls } = useThree();
+  const selectedDieId = useProjectStore((s) => s.selectedDieId);
+  const focusGeneration = useProjectStore((s) => s.focusGeneration);
+  const anim = useRef<{
+    fromCam: Vector3;
+    fromTarget: Vector3;
+    toCam: Vector3;
+    toTarget: Vector3;
+    t: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!focusGeneration || !selectedDieId) return;
+    const idx = dice.findIndex((d) => d.id === selectedDieId);
+    if (idx < 0) return;
+    const orbit = controls as OrbitLike | null;
+    if (!orbit?.target) return;
+    const [x, y, z] = dieWorldPosition(idx, dice.length, spacing);
+    const size = dice[idx].sizeMm;
+    const dist = Math.max(size * 2.35, 28);
+    anim.current = {
+      fromCam: camera.position.clone(),
+      fromTarget: orbit.target.clone(),
+      toCam: new Vector3(x + size * 0.12, y + size * 0.4, z + dist),
+      toTarget: new Vector3(x, y, z),
+      t: 0,
+    };
+    // Zoom only when the user picks a die from the vault, not when the set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusGeneration, camera, controls]);
+
+  useFrame((_, dt) => {
+    const a = anim.current;
+    const orbit = controls as OrbitLike | null;
+    if (!a || !orbit?.target) return;
+    a.t = Math.min(1, a.t + dt / 0.42);
+    const k = 1 - (1 - a.t) ** 3;
+    camera.position.lerpVectors(a.fromCam, a.toCam, k);
+    orbit.target.lerpVectors(a.fromTarget, a.toTarget, k);
+    orbit.update();
+    if (a.t >= 1) anim.current = null;
+  });
+
   return null;
 }
 
@@ -45,11 +108,10 @@ function PlacedDie({
   const selectFace = useProjectStore((s) => s.selectFace);
   const { build } = useDieBuild(die, font, logos, scale);
 
-  const position = useMemo(() => {
-    if (count <= 1) return [0, 0, 0] as [number, number, number];
-    const x = (index - (count - 1) / 2) * spacing;
-    return [x, 0, 0] as [number, number, number];
-  }, [index, count, spacing]);
+  const position = useMemo(
+    () => dieWorldPosition(index, count, spacing),
+    [index, count, spacing],
+  );
 
   if (!build) return null;
   const selected = die.id === selectedDieId;
@@ -89,6 +151,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
       >
         <color attach="background" args={["#0c0907"]} />
         <FrameCamera y={layout.cameraY} z={layout.cameraZ} fov={layout.fov} />
+        <FocusOnDie dice={dice} spacing={layout.spacing} />
         <SceneLights />
         <Suspense fallback={null}>
           {font &&
@@ -126,7 +189,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
         />
       </Canvas>
       <div className="viewport-hint">
-        Drag to orbit · Scroll to zoom · Click a face to inscribe it
+        Drag to orbit · Scroll to zoom · Pick a die from the vault to inspect it
       </div>
     </div>
   );

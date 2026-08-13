@@ -48,10 +48,16 @@ function makeFrame(
     up = farthest.clone().sub(center);
     up.sub(n.clone().multiplyScalar(up.dot(n)));
   } else if (vertices.length === 3) {
-    // Point "up" at the highest vertex so triangular numerals sit in the face.
+    // Aim the numeral at the sharpest vertex (crystal d4 / isosceles),
+    // breaking ties toward world-up so equilateral faces stay stable.
     let top = vertices[0];
+    let best = -Infinity;
     for (const v of vertices) {
-      if (v.y > top.y) top = v;
+      const score = v.distanceToSquared(center) + v.y * 1e-4;
+      if (score > best) {
+        best = score;
+        top = v;
+      }
     }
     up = top.clone().sub(center);
     up.sub(n.clone().multiplyScalar(up.dot(n)));
@@ -204,9 +210,9 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     }
     normal.normalize();
     const vertices = uniquePoints(points);
-    const center = new Vector3();
-    for (const v of vertices) center.add(v);
-    center.divideScalar(vertices.length || 1);
+    const centroid = new Vector3();
+    for (const v of vertices) centroid.add(v);
+    centroid.divideScalar(vertices.length || 1);
 
     let area = 0;
     for (const tri of group) {
@@ -214,6 +220,8 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
         tri.b.clone().sub(tri.a).cross(tri.c.clone().sub(tri.a)).length() * 0.5;
     }
 
+    const seed = makeFrame(type, centroid, normal, vertices);
+    const center = visualCenter(vertices, centroid, seed.tangent, seed.bitangent);
     const { tangent, bitangent } = makeFrame(type, center, normal, vertices);
     faces.push({
       index: i,
@@ -239,6 +247,186 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     f.index = idx;
   });
   return faces;
+}
+
+type Pt2 = { x: number; y: number };
+
+function project2D(
+  vertices: Vector3[],
+  origin: Vector3,
+  tangent: Vector3,
+  bitangent: Vector3,
+): Pt2[] {
+  return vertices.map((v) => {
+    const d = v.clone().sub(origin);
+    return { x: d.dot(tangent), y: d.dot(bitangent) };
+  });
+}
+
+function monotoneHull2D(pts: Pt2[]): Pt2[] {
+  const sorted = [...pts].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+  if (sorted.length <= 2) return sorted;
+
+  const cross = (o: Pt2, a: Pt2, p: Pt2) =>
+    (a.x - o.x) * (p.y - o.y) - (a.y - o.y) * (p.x - o.x);
+
+  const lower: Pt2[] = [];
+  for (const p of sorted) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: Pt2[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
+}
+
+function triangleIncenter2(a: Pt2, b: Pt2, c: Pt2): Pt2 {
+  const la = Math.hypot(b.x - c.x, b.y - c.y);
+  const lb = Math.hypot(a.x - c.x, a.y - c.y);
+  const lc = Math.hypot(a.x - b.x, a.y - b.y);
+  const p = la + lb + lc;
+  if (p < 1e-12) {
+    return { x: (a.x + b.x + c.x) / 3, y: (a.y + b.y + c.y) / 3 };
+  }
+  return {
+    x: (la * a.x + lb * b.x + lc * c.x) / p,
+    y: (la * a.y + lb * b.y + lc * c.y) / p,
+  };
+}
+
+/** Center of the largest inscribed circle of a convex polygon. */
+export function polygonIncenter2(poly: Pt2[]): Pt2 {
+  if (poly.length === 0) return { x: 0, y: 0 };
+  if (poly.length === 1) return { x: poly[0].x, y: poly[0].y };
+  if (poly.length === 2) {
+    return {
+      x: (poly[0].x + poly[1].x) / 2,
+      y: (poly[0].y + poly[1].y) / 2,
+    };
+  }
+
+  let ring = poly;
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  if (area < 0) ring = [...poly].reverse();
+
+  if (ring.length === 3) return triangleIncenter2(ring[0], ring[1], ring[2]);
+
+  const n = ring.length;
+  const edges = ring.map((p, i) => {
+    const q = ring[(i + 1) % n];
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { a: p, nx: -dy / len, ny: dx / len };
+  });
+
+  const dist = (pt: Pt2, e: (typeof edges)[0]) =>
+    (pt.x - e.a.x) * e.nx + (pt.y - e.a.y) * e.ny;
+
+  let best: Pt2 | null = null;
+  let bestR = -1;
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      for (let k = j + 1; k < n; k++) {
+        const e1 = edges[i];
+        const e2 = edges[j];
+        const e3 = edges[k];
+        const a11 = e1.nx - e2.nx;
+        const a12 = e1.ny - e2.ny;
+        const a21 = e1.nx - e3.nx;
+        const a22 = e1.ny - e3.ny;
+        const b1 =
+          e1.nx * e1.a.x +
+          e1.ny * e1.a.y -
+          (e2.nx * e2.a.x + e2.ny * e2.a.y);
+        const b2 =
+          e1.nx * e1.a.x +
+          e1.ny * e1.a.y -
+          (e3.nx * e3.a.x + e3.ny * e3.a.y);
+        const det = a11 * a22 - a12 * a21;
+        if (Math.abs(det) < 1e-12) continue;
+        const pt = {
+          x: (b1 * a22 - a12 * b2) / det,
+          y: (a11 * b2 - b1 * a21) / det,
+        };
+        const r = dist(pt, e1);
+        if (r <= 1e-8) continue;
+        if (edges.some((e) => dist(pt, e) < r - 1e-4)) continue;
+        if (r > bestR) {
+          bestR = r;
+          best = pt;
+        }
+      }
+    }
+  }
+
+  if (!best) {
+    const c = { x: 0, y: 0 };
+    for (const p of ring) {
+      c.x += p.x;
+      c.y += p.y;
+    }
+    c.x /= ring.length;
+    c.y /= ring.length;
+    return c;
+  }
+  return best;
+}
+
+function visualCenter(
+  vertices: Vector3[],
+  centroid: Vector3,
+  tangent: Vector3,
+  bitangent: Vector3,
+): Vector3 {
+  if (vertices.length < 3) return centroid.clone();
+  const hull = monotoneHull2D(project2D(vertices, centroid, tangent, bitangent));
+  if (hull.length < 3) return centroid.clone();
+  const mid = polygonIncenter2(hull);
+  return centroid
+    .clone()
+    .addScaledVector(tangent, mid.x)
+    .addScaledVector(bitangent, mid.y);
+}
+
+/** Distance from the face center to each convex-hull edge. */
+export function faceEdgeDistances(face: DieFace): number[] {
+  const hull = convexHull2D(face);
+  if (hull.length < 2) return [];
+  const c = face.center;
+  const dists: number[] = [];
+  for (let i = 0; i < hull.length; i++) {
+    const a = hull[i];
+    const b = hull[(i + 1) % hull.length];
+    const ab = b.clone().sub(a);
+    const ap = c.clone().sub(a);
+    const len = ab.length();
+    if (len < 1e-9) continue;
+    dists.push(ab.clone().cross(ap).length() / len);
+  }
+  return dists;
 }
 
 /** Distance from face center to the nearest boundary edge. */

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { extractFaces, faceInradius, glyphFitSize } from "./faces";
+import { Vector3 } from "three";
+import {
+  extractFaces,
+  faceEdgeDistances,
+  faceInradius,
+  glyphFitSize,
+  polygonIncenter2,
+} from "./faces";
 import { createDieGeometry } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
@@ -94,5 +101,62 @@ describe("glyph fit", () => {
     const octFit = Math.max(...oct.map(glyphFitSize));
     expect(cubeFit).toBeGreaterThan(octFit);
     expect(Math.min(...cube.map(faceInradius))).toBeGreaterThan(7);
+  });
+});
+
+describe("face centers", () => {
+  it("keeps equilateral D8 centers on the vertex centroid", () => {
+    const faces = extractFaces(createDieGeometry("d8", 16), "d8");
+    for (const face of faces) {
+      expect(face.vertices.length).toBe(3);
+      const centroid = new Vector3();
+      for (const v of face.vertices) centroid.add(v);
+      centroid.divideScalar(3);
+      expect(face.center.distanceTo(centroid)).toBeLessThan(0.05);
+      const dists = faceEdgeDistances(face);
+      expect(Math.max(...dists) - Math.min(...dists)).toBeLessThan(0.05);
+    }
+  });
+
+  it("places D10 numerals at the kite incenter", () => {
+    const faces = extractFaces(createDieGeometry("d10", 16), "d10");
+    expect(faces.length).toBe(10);
+    for (const face of faces) {
+      expect(face.vertices.length).toBe(4);
+      const centroid = new Vector3();
+      for (const v of face.vertices) centroid.add(v);
+      centroid.divideScalar(4);
+      expect(face.center.distanceTo(centroid)).toBeGreaterThan(0.2);
+      const dists = faceEdgeDistances(face);
+      expect(dists.length).toBe(4);
+      expect(Math.max(...dists) - Math.min(...dists)).toBeLessThan(0.08);
+    }
+  });
+
+  it("finds the incenter of a kite, not the diagonal crossing", () => {
+    const kite = [
+      { x: 0, y: 2 },
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+      { x: -1, y: 0 },
+    ];
+    const c = polygonIncenter2(kite);
+    const expectedY =
+      (2 * Math.sqrt(2) - Math.sqrt(5)) / (Math.sqrt(2) + Math.sqrt(5));
+    expect(c.x).toBeCloseTo(0, 5);
+    expect(c.y).toBeCloseTo(expectedY, 5);
+    expect(Math.abs(c.y)).toBeGreaterThan(0.05);
+  });
+
+  it("matches centroid and incenter on an equilateral triangle", () => {
+    const h = Math.sqrt(3);
+    const tri = [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 1, y: h },
+    ];
+    const c = polygonIncenter2(tri);
+    expect(c.x).toBeCloseTo(1, 6);
+    expect(c.y).toBeCloseTo(h / 3, 6);
   });
 });
