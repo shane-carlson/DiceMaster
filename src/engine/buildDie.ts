@@ -164,45 +164,6 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   });
 }
 
-function carveLooksSane(original: BufferGeometry, carved: BufferGeometry): boolean {
-  original.computeBoundingSphere();
-  carved.computeBoundingSphere();
-  const r0 = original.boundingSphere?.radius ?? 1;
-  const r1 = carved.boundingSphere?.radius ?? 0;
-  const count = carved.getAttribute("position")?.count ?? 0;
-  return r1 < r0 * 1.35 && r1 > r0 * 0.5 && count > 36;
-}
-
-function carveBody(
-  body: BufferGeometry,
-  glyphs: PlacedGlyph[],
-  mode: DieInstance["engraveMode"],
-): BufferGeometry | null {
-  if (glyphs.length === 0) return null;
-  try {
-    const evaluator = new Evaluator();
-    evaluator.useGroups = false;
-    let current = new Brush(body.clone());
-    current.updateMatrixWorld();
-    const op = mode === "emboss" ? ADDITION : SUBTRACTION;
-    for (const glyph of glyphs) {
-      const cutter = new Brush((glyph.cutter ?? glyph.geometry).clone());
-      cutter.applyMatrix4(glyph.cutterMatrix);
-      cutter.updateMatrixWorld();
-      current = evaluator.evaluate(current, cutter, op);
-    }
-    const geom = current.geometry.clone();
-    geom.computeVertexNormals();
-    if (!carveLooksSane(body, geom)) {
-      geom.dispose();
-      return null;
-    }
-    return geom;
-  } catch {
-    return null;
-  }
-}
-
 export async function buildDie(
   die: DieInstance,
   font: Font,
@@ -286,18 +247,6 @@ export async function buildDie(
     }
   }
 
-  let carved = false;
-  if (quality === "preview" && die.engraveMode === "engrave") {
-    const carvedBody = carveBody(body, glyphs, "engrave");
-    if (carvedBody) {
-      body = carvedBody;
-      carved = true;
-      for (const glyph of glyphs) {
-        glyph.matrix = glyph.wellMatrix;
-      }
-    }
-  }
-
   return {
     body,
     pickGeometry: sharp,
@@ -305,7 +254,7 @@ export async function buildDie(
     glyphs,
     sizeMm: die.sizeMm,
     engraveMode: die.engraveMode,
-    carved,
+    carved: false,
   };
 }
 

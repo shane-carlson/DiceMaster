@@ -7,7 +7,7 @@ import {
   Vector3,
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
-import type { DieBuild, PlacedGlyph } from "../../engine/buildDie";
+import type { PlacedGlyph } from "../../engine/buildDie";
 import type { DieFace } from "../../engine/faces";
 
 function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
@@ -47,14 +47,18 @@ function closestFaceIndex(localPoint: Vector3, faces: DieFace[]): number | null 
 }
 
 export function DieMesh({
-  build,
+  body,
+  glyphs,
+  faces,
   color,
   selected,
   selectedFace,
   onSelectFace,
   onSelectDie,
 }: {
-  build: DieBuild;
+  body: BufferGeometry;
+  glyphs: PlacedGlyph[];
+  faces: DieFace[];
   color: string;
   selected: boolean;
   selectedFace: number | null;
@@ -63,7 +67,7 @@ export function DieMesh({
 }) {
   const highlight = useMemo(() => {
     if (selectedFace === null) return null;
-    const face = build.faces[selectedFace];
+    const face = faces[selectedFace];
     if (!face || face.vertices.length < 3) return null;
     const geom = new BufferGeometry();
     const verts: number[] = [];
@@ -78,19 +82,19 @@ export function DieMesh({
     geom.setAttribute("position", new BufferAttribute(new Float32Array(verts), 3));
     geom.computeVertexNormals();
     return geom;
-  }, [build.faces, selectedFace]);
+  }, [faces, selectedFace]);
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const local = e.object.worldToLocal(e.point.clone());
-    const mapped = closestFaceIndex(local, build.faces);
+    const mapped = closestFaceIndex(local, faces);
     if (mapped !== null) onSelectFace(mapped);
     else onSelectDie();
   };
 
   return (
     <group>
-      <mesh geometry={build.body} onClick={onClick} castShadow receiveShadow>
+      <mesh geometry={body} onClick={onClick}>
         <meshStandardMaterial
           color={color}
           roughness={0.38}
@@ -100,7 +104,7 @@ export function DieMesh({
           emissiveIntensity={selected ? 0.28 : 0.04}
         />
       </mesh>
-      {build.glyphs.map((g, i) => (
+      {glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}

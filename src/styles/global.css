@@ -414,6 +414,21 @@ img {
   pointer-events: none;
 }
 
+.viewport-error {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--parchment);
+  padding: 24px;
+}
+
+.viewport-error small {
+  color: var(--muted);
+  max-width: 28ch;
+}
+
 .die-list {
   display: flex;
   flex-direction: column;
