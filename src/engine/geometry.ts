@@ -84,9 +84,82 @@ export function filletRadiusMm(sizeMm: number, amount: number): number {
   return sizeMm * t * ROUNDING_RADIUS_FACTOR;
 }
 
+function vertexCentroid(verts: Vector3[]): Vector3 {
+  const c = new Vector3();
+  for (const v of verts) c.add(v);
+  return c.multiplyScalar(1 / Math.max(verts.length, 1));
+}
+
+interface HullTri {
+  a: Vector3;
+  n: Vector3;
+}
+
+function convexTriangles(geometry: BufferGeometry): HullTri[] {
+  const pos = geometry.getAttribute("position");
+  const index = geometry.getIndex();
+  const triCount = index ? index.count / 3 : pos.count / 3;
+  const out: HullTri[] = [];
+  const a = new Vector3();
+  const b = new Vector3();
+  const c = new Vector3();
+  const n = new Vector3();
+  for (let t = 0; t < triCount; t++) {
+    const ia = index ? index.getX(t * 3) : t * 3;
+    const ib = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+    const ic = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+    a.set(pos.getX(ia), pos.getY(ia), pos.getZ(ia));
+    b.set(pos.getX(ib), pos.getY(ib), pos.getZ(ib));
+    c.set(pos.getX(ic), pos.getY(ic), pos.getZ(ic));
+    n.copy(b).sub(a);
+    const cb = c.clone().sub(a);
+    n.cross(cb);
+    if (n.lengthSq() < 1e-16) continue;
+    n.normalize();
+    out.push({ a: a.clone(), n: n.clone() });
+  }
+  return out;
+}
+
+function convexInradius(tris: HullTri[], center: Vector3): number {
+  let min = Infinity;
+  for (const tri of tris) {
+    const dist = tri.a.clone().sub(center).dot(tri.n);
+    const d = Math.abs(dist);
+    if (d > 1e-6 && d < min) min = d;
+  }
+  return min;
+}
+
+function uniqueDirections(dirs: Vector3[], epsDot = 0.995): Vector3[] {
+  const out: Vector3[] = [];
+  for (const d of dirs) {
+    const n = d.clone().normalize();
+    if (!out.some((u) => u.dot(n) > epsDot)) out.push(n);
+  }
+  return out;
+}
+
 /**
- * Approximate a Minkowski fillet: convex hull of small spheres at each vertex,
- * then scale back to `sizeMm` so the die keeps its catalog size.
+ * How far `point` sits inside a convex hull (positive = buried).
+ * Used so preview glyphs stay on the face, not under the fillet.
+ */
+export function convexPenetration(geometry: BufferGeometry, point: Vector3): number {
+  const tris = convexTriangles(geometry);
+  if (tris.length === 0) return 0;
+  let buried = Infinity;
+  for (const tri of tris) {
+    const outside = point.clone().sub(tri.a).dot(tri.n);
+    buried = Math.min(buried, -outside);
+  }
+  return buried;
+}
+
+/**
+ * Fillet a convex die without moving its face planes: inset vertices toward
+ * the insphere, then take the convex hull of spheres at those points.
+ * Scaling the expanded hull back to the AABB (the previous approach) pushed
+ * faces past the sharp glyph planes and buried numerals, especially on D4s.
  */
 export function roundConvexGeometry(
   geometry: BufferGeometry,
@@ -98,16 +171,35 @@ export function roundConvexGeometry(
   const verts = uniqueVertices(geometry);
   // Skip dense meshes (the D2 cylinder) — those are already round.
   if (verts.length < 4 || verts.length > 48) return geometry;
-  const r = filletRadiusMm(sizeMm, t);
+  const requested = filletRadiusMm(sizeMm, t);
+  if (requested < 1e-4) return geometry;
+  const center = vertexCentroid(verts);
+  const tris = convexTriangles(geometry);
+  const inradius = convexInradius(tris, center);
+  if (!Number.isFinite(inradius) || inradius < 0.4) return geometry;
+  const r = Math.min(requested, inradius * 0.72);
   if (r < 1e-4) return geometry;
-  const samples = unitSphereSamples();
+  const s = (inradius - r) / inradius;
+  const inset = verts.map((v) =>
+    new Vector3(
+      center.x + (v.x - center.x) * s,
+      center.y + (v.y - center.y) * s,
+      center.z + (v.z - center.z) * s,
+    ),
+  );
+  const samples = uniqueDirections([
+    ...unitSphereSamples(),
+    ...tris.map((tri) => tri.n),
+  ]);
   const points: Vector3[] = [];
-  for (const v of verts) {
-    for (const s of samples) {
-      points.push(new Vector3(v.x + s.x * r, v.y + s.y * r, v.z + s.z * r));
+  for (const v of inset) {
+    for (const d of samples) {
+      points.push(new Vector3(v.x + d.x * r, v.y + d.y * r, v.z + d.z * r));
     }
   }
-  return scaleToSize(new ConvexGeometry(points), sizeMm);
+  const rounded = new ConvexGeometry(points);
+  rounded.computeVertexNormals();
+  return rounded;
 }
 
 function icosahedronVertices(): Vector3[] {
