@@ -10,7 +10,14 @@ export type GoogleIdentity = {
 const GOOGLE_ISS = new Set(["https://accounts.google.com", "accounts.google.com"]);
 const CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
-type GoogleJwk = JsonWebKey & { kid?: string };
+type GoogleJwk = {
+  kid?: string;
+  kty?: string;
+  n?: string;
+  e?: string;
+  alg?: string;
+  use?: string;
+};
 
 let cached: { keys: GoogleJwk[]; fetchedAt: number } | null = null;
 
