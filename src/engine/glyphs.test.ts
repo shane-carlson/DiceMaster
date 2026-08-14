@@ -96,4 +96,49 @@ describe("preview letter decals", () => {
     expect(bb.max.x - bb.min.x).toBeGreaterThan(5);
     expect(bb.max.y - bb.min.y).toBeGreaterThan(8);
   });
+
+  it("keeps a counter open when it is a separate shape", () => {
+    const outer = new Shape();
+    outer.moveTo(-4, -6);
+    outer.lineTo(4, -6);
+    outer.lineTo(4, 6);
+    outer.lineTo(-4, 6);
+    outer.closePath();
+    const inner = new Shape();
+    inner.moveTo(-1.5, -2);
+    inner.lineTo(1.5, -2);
+    inner.lineTo(1.5, 2);
+    inner.lineTo(-1.5, 2);
+    inner.closePath();
+    const geom = letterDecalGeometry([outer, inner], 0.12)!;
+    const pos = geom.getAttribute("position");
+    const covers = (x: number, y: number) => {
+      for (let i = 0; i < pos.count; i += 3) {
+        const ax = pos.getX(i);
+        const ay = pos.getY(i);
+        const bx = pos.getX(i + 1);
+        const by = pos.getY(i + 1);
+        const cx = pos.getX(i + 2);
+        const cy = pos.getY(i + 2);
+        const v0x = cx - ax;
+        const v0y = cy - ay;
+        const v1x = bx - ax;
+        const v1y = by - ay;
+        const v2x = x - ax;
+        const v2y = y - ay;
+        const dot00 = v0x * v0x + v0y * v0y;
+        const dot01 = v0x * v1x + v0y * v1y;
+        const dot02 = v0x * v2x + v0y * v2y;
+        const dot11 = v1x * v1x + v1y * v1y;
+        const dot12 = v1x * v2x + v1y * v2y;
+        const inv = 1 / (dot00 * dot11 - dot01 * dot01);
+        const u = (dot11 * dot02 - dot01 * dot12) * inv;
+        const v = (dot00 * dot12 - dot01 * dot02) * inv;
+        if (u >= -1e-6 && v >= -1e-6 && u + v <= 1 + 1e-6) return true;
+      }
+      return false;
+    };
+    expect(covers(0, 0)).toBe(false);
+    expect(covers(3, 0)).toBe(true);
+  });
 });

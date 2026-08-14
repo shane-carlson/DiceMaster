@@ -341,6 +341,57 @@ function ringArea(pts: Vector2[]): number {
   return area / 2;
 }
 
+function pointInRing(x: number, y: number, ring: Vector2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function collectRings(shapes: Shape[], divisions: number): Vector2[][] {
+  const rings: Vector2[][] = [];
+  for (const shape of shapes) {
+    const extracted = shape.extractPoints(divisions);
+    const outer = uniqueRing(extracted.shape);
+    if (outer.length >= 3) rings.push(outer);
+    for (const holePts of extracted.holes) {
+      const hole = uniqueRing(holePts);
+      if (hole.length >= 3) rings.push(hole);
+    }
+  }
+  return rings;
+}
+
+/** Nest smaller contours inside larger ones so counters (4, 6, 8, 9, 0) stay open. */
+export function nestFillRings(rings: Vector2[][]): { outer: Vector2[]; holes: Vector2[][] }[] {
+  const items = rings
+    .filter((pts) => pts.length >= 3)
+    .map((pts) => ({ pts, area: Math.abs(ringArea(pts)) }))
+    .sort((a, b) => b.area - a.area);
+  const groups: { outer: Vector2[]; holes: Vector2[][] }[] = [];
+  for (const item of items) {
+    const sample = item.pts[0];
+    let parent: { outer: Vector2[]; holes: Vector2[][] } | null = null;
+    for (const group of groups) {
+      if (pointInRing(sample.x, sample.y, group.outer)) parent = group;
+    }
+    if (parent) parent.holes.push(item.pts);
+    else groups.push({ outer: item.pts, holes: [] });
+  }
+  for (const group of groups) {
+    if (ShapeUtils.isClockWise(group.outer)) group.outer.reverse();
+    for (const hole of group.holes) {
+      if (!ShapeUtils.isClockWise(hole)) hole.reverse();
+    }
+  }
+  return groups;
+}
+
 /**
  * Font Path.toShapes sometimes stores the outline as a hole. Use the largest
  * ring as the outer fill and keep only smaller rings as counters.
@@ -349,25 +400,8 @@ export function fillRings(
   shape: Shape,
   divisions = 16,
 ): { outer: Vector2[]; holes: Vector2[][] } | null {
-  const rings = shapeRings(shape, divisions);
-  if (!rings) return null;
-  const outerArea = Math.abs(ringArea(rings.outer));
-  const holes = rings.holes.map((pts) => ({ pts, area: Math.abs(ringArea(pts)) }));
-  holes.sort((a, b) => b.area - a.area);
-  const biggest = holes[0];
-  if (biggest && biggest.area > outerArea * 1.15) {
-    const outer = biggest.pts;
-    if (ShapeUtils.isClockWise(outer)) outer.reverse();
-    const rest = holes.slice(1).filter((h) => h.area > biggest.area * 0.02);
-    return {
-      outer,
-      holes: rest.map((h) => {
-        if (!ShapeUtils.isClockWise(h.pts)) h.pts.reverse();
-        return h.pts;
-      }),
-    };
-  }
-  return rings;
+  const nested = nestFillRings(collectRings([shape], divisions));
+  return nested[0] ?? null;
 }
 
 /** Single-sided letter fill sitting at z, with no walls or coplanar back cap. */
@@ -378,11 +412,7 @@ export function letterDecalGeometry(
 ): BufferGeometry | null {
   if (shapes.length === 0) return null;
   const divisions = Math.max(12, curveSegments);
-  const prepared: { outer: Vector2[]; holes: Vector2[][] }[] = [];
-  for (const shape of shapes) {
-    const rings = fillRings(shape, divisions);
-    if (rings) prepared.push(rings);
-  }
+  const prepared = nestFillRings(collectRings(shapes, divisions));
   if (prepared.length === 0) return null;
 
   let minX = Infinity;
