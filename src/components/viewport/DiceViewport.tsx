@@ -6,7 +6,7 @@ import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
 import { DieMesh } from "./DieMesh";
-import { CameraKeyLight, SceneLights } from "./SceneLights";
+import { FaceInspectLight, SceneLights } from "./SceneLights";
 import type { DieInstance } from "../../engine/types";
 import {
   applyViewPose,
@@ -243,6 +243,7 @@ function PlacedDie({
         color={die.color}
         selected={selected}
         selectedFace={selected ? selectedFaceIndex : null}
+        inspectFace={previewMode === "face" && selected}
         onSelectDie={() => selectDie(die.id)}
         onSelectFace={(i) => focusDieFace(die.id, i)}
       />
@@ -282,8 +283,8 @@ export function DiceViewport({ font }: { font: Font | null }) {
         >
           <AimAtOrigin />
           <color attach="background" args={["#0c0907"]} />
-          <SceneLights />
-          <CameraKeyLight enabled={inspectingFace} />
+          <SceneLights dimmed={inspectingFace} />
+          <FaceInspectLight enabled={inspectingFace} />
           {dice.map((die, i) => (
             <PlacedDie
               key={die.id}

@@ -53,6 +53,7 @@ export function DieMesh({
   color,
   selected,
   selectedFace,
+  inspectFace = false,
   onSelectFace,
   onSelectDie,
 }: {
@@ -62,11 +63,12 @@ export function DieMesh({
   color: string;
   selected: boolean;
   selectedFace: number | null;
+  inspectFace?: boolean;
   onSelectFace: (index: number) => void;
   onSelectDie: () => void;
 }) {
   const highlight = useMemo(() => {
-    if (selectedFace === null) return null;
+    if (inspectFace || selectedFace === null) return null;
     const face = faces[selectedFace];
     if (!face) return null;
     const ring = faceOutline3D(face);
@@ -84,7 +86,7 @@ export function DieMesh({
     geom.setAttribute("position", new BufferAttribute(new Float32Array(verts), 3));
     geom.computeVertexNormals();
     return geom;
-  }, [faces, selectedFace]);
+  }, [faces, selectedFace, inspectFace]);
 
   const shaded = useMemo(() => geometryFromFaces(faces), [faces]);
   const displayBody = shaded ?? body;
@@ -109,17 +111,17 @@ export function DieMesh({
       <mesh geometry={displayBody} onClick={onClick}>
         <meshStandardMaterial
           color={color}
-          roughness={0.52}
+          roughness={inspectFace ? 0.62 : 0.52}
           metalness={0.02}
-          emissive={selected ? "#5c4018" : "#110a06"}
-          emissiveIntensity={selected ? 0.28 : 0.04}
+          emissive={inspectFace ? "#000000" : selected ? "#5c4018" : "#110a06"}
+          emissiveIntensity={inspectFace ? 0 : selected ? 0.28 : 0.04}
         />
       </mesh>
       {glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
-          color={g.role === "emblem" ? "#f0d78a" : "#070504"}
+          color={g.role === "emblem" ? "#f0d78a" : inspectFace ? "#0a0604" : "#070504"}
         />
       ))}
       {highlight && (
