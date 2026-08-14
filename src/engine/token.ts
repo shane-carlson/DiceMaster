@@ -6,7 +6,7 @@ import { TOKEN_SHAPES } from "./types";
 /** Face diameter of a newly added maker token (mm). */
 export const TOKEN_DIAMETER_MM = 25;
 /** Body thickness of every maker token (mm). Size changes diameter only. */
-export const TOKEN_THICKNESS_MM = 5;
+export const TOKEN_THICKNESS_MM = 15;
 /** Symbol/logo AABB vs inscribed face diameter. Scale 1 fills this. */
 export const TOKEN_MARK_FILL = 0.9;
 

@@ -4,6 +4,7 @@ import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/f
 import { uid } from "../../engine/id";
 import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, GlyphSettings, SizeFormatId } from "../../engine/types";
+import { TOKEN_DIAMETER_MM, TOKEN_THICKNESS_MM } from "../../engine/token";
 import { symbolsByCategory, SYMBOL_CREDIT } from "../../engine/symbols";
 import { useAuthStore } from "../../store/authStore";
 import { useCatalogStore } from "../../store/catalogStore";
@@ -155,7 +156,10 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       </div>
 
       <h2>Add-ons</h2>
-      <p className="help">Two-faced maker tokens, 25mm across and 5mm thick. Pick a silhouette in the Inspector.</p>
+      <p className="help">
+        Two-faced maker tokens, {TOKEN_DIAMETER_MM}mm across and {TOKEN_THICKNESS_MM}mm thick. Pick a
+        silhouette in the Inspector.
+      </p>
       <div className="chip-row">
         <button className="type-btn" onClick={() => addDie("token")}>
           Maker token

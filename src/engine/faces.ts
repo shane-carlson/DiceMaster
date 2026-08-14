@@ -416,6 +416,11 @@ export function geometryFromFaces(faces: DieFace[]): BufferGeometry | null {
   return geom;
 }
 
+/** Face-fan mesh is only a closed solid when the rim faces are present too. */
+export function canShadeFromFaces(faces: DieFace[]): boolean {
+  return faces.filter((f) => f.vertices.length >= 3).length >= 4;
+}
+
 function triangleIncenter2(a: Pt2, b: Pt2, c: Pt2): Pt2 {
   const la = Math.hypot(b.x - c.x, b.y - c.y);
   const lb = Math.hypot(a.x - c.x, a.y - c.y);
