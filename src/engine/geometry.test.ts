@@ -10,10 +10,11 @@ import {
   glyphFitSize,
   polygonIncenter2,
 } from "./faces";
-import { createDieGeometry, roundConvexGeometry, uniqueVertices } from "./geometry";
+import { createDieGeometry, convexPenetration, roundConvexGeometry, uniqueVertices } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
 import { faceMatrix, buildDie } from "./buildDie";
+import { d4CornerPlacements, tetraOppositeVertexLabels } from "./d4";
 import { extrudeShapes } from "./glyphs";
 import { DEFAULT_DEPTH } from "./sizes";
 import { createDie } from "./defaults";
@@ -154,15 +155,57 @@ describe("corner rounding", () => {
     expect(roundConvexGeometry(sharp, 0, 16)).toBe(sharp);
   });
 
-  it("adds vertices and keeps catalog size on a d6", () => {
+  it("adds vertices and keeps d6 face-to-face size", () => {
     const sharp = createDieGeometry("d6", 16);
     const rounded = roundConvexGeometry(sharp, 0.18, 16);
     expect(rounded).not.toBe(sharp);
     expect(uniqueVertices(rounded).length).toBeGreaterThan(uniqueVertices(sharp).length);
-    rounded.computeBoundingBox();
-    const bb = rounded.boundingBox!;
-    const dim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
-    expect(dim).toBeCloseTo(16, 3);
+    const faces = extractFaces(sharp, "d6");
+    const span = faces[0].center.clone().sub(
+      faces.find((f) => f.normal.dot(faces[0].normal) < -0.9)!.center,
+    ).length();
+    expect(span).toBeCloseTo(16, 2);
+    for (const face of faces) {
+      expect(convexPenetration(rounded, face.center)).toBeLessThan(0.08);
+    }
+  });
+
+  it("does not bury face-centered glyphs on a rounded d20", () => {
+    const sharp = createDieGeometry("d20", 20);
+    const rounded = roundConvexGeometry(sharp, 0.18, 20);
+    for (const face of extractFaces(sharp, "d20")) {
+      expect(convexPenetration(rounded, face.center)).toBeLessThan(0.08);
+    }
+  });
+
+  it("keeps numeral planes on the rounded surface for every polyhedron", () => {
+    for (const type of TYPES) {
+      const size = type === "d4" || type === "d4crystal" || type === "d4teardrop" ? 18 : 16;
+      const sharp = createDieGeometry(type, size);
+      const rounded = roundConvexGeometry(sharp, 0.18, size);
+      const faces = extractFaces(sharp, type);
+      expect(faces.length).toBeGreaterThan(0);
+      for (const face of faces) {
+        expect(convexPenetration(rounded, face.center), type).toBeLessThan(0.12);
+      }
+    }
+  });
+
+  it("does not bury D4 vertex numerals under the fillet", () => {
+    const sharp = createDieGeometry("d4", 18);
+    const rounded = roundConvexGeometry(sharp, 0.18, 18);
+    const faces = numberFaces("d4", extractFaces(sharp, "d4"), "0-9");
+    const labels = tetraOppositeVertexLabels(faces);
+    for (const face of faces) {
+      expect(convexPenetration(rounded, face.center)).toBeLessThan(0.08);
+      for (const corner of d4CornerPlacements(face, labels)) {
+        const origin = face.center
+          .clone()
+          .add(face.tangent.clone().multiplyScalar(corner.ox))
+          .add(face.bitangent.clone().multiplyScalar(corner.oy));
+        expect(convexPenetration(rounded, origin)).toBeLessThan(0.12);
+      }
+    }
   });
 
   it("does not change extracted face count on the sharp hull", () => {
@@ -180,6 +223,16 @@ describe("corner rounding", () => {
     expect(uniqueVertices(build.body).length).toBeGreaterThan(
       uniqueVertices(build.pickGeometry).length,
     );
+  });
+
+  it("still places three numerals on every tetrahedron face", async () => {
+    const die = createDie("d4", "standard", { cornerRounding: 0.18 });
+    const build = await buildDie(die, font, [], 1, "preview");
+    expect(build.glyphs.filter((g) => g.role === "primary")).toHaveLength(12);
+    for (const glyph of build.glyphs) {
+      const origin = new Vector3().setFromMatrixPosition(glyph.matrix);
+      expect(convexPenetration(build.body, origin)).toBeLessThan(0.12);
+    }
   });
 });
 
