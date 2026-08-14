@@ -1,4 +1,4 @@
-import { Component, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
+import { Component, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { ACESFilmicToneMapping, BufferGeometry, Vector3 } from "three";
@@ -6,7 +6,7 @@ import type { Font } from "opentype.js";
 import { useDieBuild } from "../../hooks/useDieBuild";
 import { useProjectStore } from "../../store/projectStore";
 import { DieMesh } from "./DieMesh";
-import { SceneLights } from "./SceneLights";
+import { CameraKeyLight, SceneLights } from "./SceneLights";
 import type { DieInstance } from "../../engine/types";
 import {
   applyViewPose,
@@ -126,18 +126,17 @@ function FocusOnDie({
   spacing,
   cameraY,
   cameraZ,
-  resetGeneration,
 }: {
   dice: DieInstance[];
   spacing: number;
   cameraY: number;
   cameraZ: number;
-  resetGeneration: number;
 }) {
   const { camera, controls } = useThree();
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const focusGeneration = useProjectStore((s) => s.focusGeneration);
+  const viewResetGeneration = useProjectStore((s) => s.viewResetGeneration);
   const latest = useRef({
     dice,
     spacing,
@@ -147,7 +146,7 @@ function FocusOnDie({
     controls,
     cameraY,
     cameraZ,
-    resetGeneration,
+    viewResetGeneration,
     focusGeneration,
   });
   latest.current = {
@@ -159,7 +158,7 @@ function FocusOnDie({
     controls,
     cameraY,
     cameraZ,
-    resetGeneration,
+    viewResetGeneration,
     focusGeneration,
   };
   const anim = useRef<{ from: ViewPose; to: ViewPose; started: number } | null>(null);
@@ -171,9 +170,9 @@ function FocusOnDie({
     const orbit = snap.controls as OrbitLike | null;
     if (!orbit?.target) return;
 
-    if (snap.resetGeneration && snap.resetGeneration !== playedReset.current) {
+    if (snap.viewResetGeneration && snap.viewResetGeneration !== playedReset.current) {
       startPoseAnim(snap.camera, orbit, overviewViewPose(snap.cameraY, snap.cameraZ), anim);
-      playedReset.current = snap.resetGeneration;
+      playedReset.current = snap.viewResetGeneration;
       playedFocus.current = snap.focusGeneration;
     } else if (
       snap.focusGeneration &&
@@ -219,6 +218,7 @@ function PlacedDie({
   const scale = useProjectStore((s) => s.project.globalFontScale);
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
+  const previewMode = useProjectStore((s) => s.previewMode);
   const selectDie = useProjectStore((s) => s.selectDie);
   const focusDieFace = useProjectStore((s) => s.focusDieFace);
   const { build } = useDieBuild(die, font, logos, scale);
@@ -232,9 +232,10 @@ function PlacedDie({
   );
 
   const selected = die.id === selectedDieId;
+  const hidden = previewMode === "face" && die.id !== selectedDieId;
 
   return (
-    <group position={position}>
+    <group position={position} visible={!hidden}>
       <DieMesh
         body={build?.body ?? fallback}
         glyphs={build?.glyphs ?? []}
@@ -251,9 +252,11 @@ function PlacedDie({
 
 export function DiceViewport({ font }: { font: Font | null }) {
   const dice = useProjectStore((s) => s.project.dice);
-  const [resetGeneration, setResetGeneration] = useState(0);
+  const previewMode = useProjectStore((s) => s.previewMode);
+  const resetView = useProjectStore((s) => s.resetView);
   const frameKey = dice.map((d) => `${d.id}:${Math.round(d.sizeMm)}:${d.type}`).join("|");
   const layout = useMemo(() => layoutSet(dice), [dice, frameKey]);
+  const inspectingFace = previewMode === "face";
 
   return (
     <div className="viewport">
@@ -280,6 +283,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
           <AimAtOrigin />
           <color attach="background" args={["#0c0907"]} />
           <SceneLights />
+          <CameraKeyLight enabled={inspectingFace} />
           {dice.map((die, i) => (
             <PlacedDie
               key={die.id}
@@ -290,18 +294,22 @@ export function DiceViewport({ font }: { font: Font | null }) {
               spacing={layout.spacing}
             />
           ))}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY - 0.02, 0]}>
-            <circleGeometry args={[layout.groundR, 64]} />
-            <meshBasicMaterial color="#1a120c" />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY + 0.04, 0]}>
-            <ringGeometry args={[layout.groundR * 0.72, layout.groundR * 0.74, 64]} />
-            <meshBasicMaterial color="#d7b15a" />
-          </mesh>
+          {!inspectingFace && (
+            <>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY - 0.02, 0]}>
+                <circleGeometry args={[layout.groundR, 64]} />
+                <meshBasicMaterial color="#1a120c" />
+              </mesh>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY + 0.04, 0]}>
+                <ringGeometry args={[layout.groundR * 0.72, layout.groundR * 0.74, 64]} />
+                <meshBasicMaterial color="#d7b15a" />
+              </mesh>
+            </>
+          )}
           <OrbitControls
             makeDefault
             enablePan
-            minDistance={layout.minDistance}
+            minDistance={inspectingFace ? 3 : layout.minDistance}
             maxDistance={layout.maxDistance}
           />
           <FocusOnDie
@@ -309,16 +317,11 @@ export function DiceViewport({ font }: { font: Font | null }) {
             spacing={layout.spacing}
             cameraY={layout.cameraY}
             cameraZ={layout.cameraZ}
-            resetGeneration={resetGeneration}
           />
         </Canvas>
         </div>
       </ViewportErrorBoundary>
-      <button
-        type="button"
-        className="viewport-reset"
-        onClick={() => setResetGeneration((n) => n + 1)}
-      >
+      <button type="button" className="viewport-reset" onClick={resetView}>
         Reset view
       </button>
       <div className="viewport-hint">

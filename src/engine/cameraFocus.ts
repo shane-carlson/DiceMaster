@@ -1,5 +1,5 @@
 import { Camera, Matrix4, Vector3 } from "three";
-import type { DieFace } from "./faces";
+import { faceCircumradius, faceInradius, type DieFace } from "./faces";
 
 export interface ViewPose {
   target: Vector3;
@@ -95,6 +95,15 @@ export function overviewViewPose(cameraY: number, cameraZ: number): ViewPose {
   };
 }
 
+/** Camera distance so one face fills the view instead of the whole faceted cap. */
+export function faceViewDistance(face: DieFace, fovDeg = 46): number {
+  const circum = faceCircumradius(face);
+  const inner = faceInradius(face);
+  const r = Math.max(circum, inner * 1.2, 2);
+  const half = ((fovDeg / 2) * Math.PI) / 180;
+  return Math.max(r / Math.tan(half * 0.9), 6);
+}
+
 export function dieViewPose(
   origin: [number, number, number],
   sizeMm: number,
@@ -112,11 +121,12 @@ export function dieViewPose(
 export function faceViewPose(
   origin: [number, number, number],
   face: DieFace,
-  sizeMm: number,
+  _sizeMm: number,
   numeralRotationDeg = 0,
+  fovDeg = 46,
 ): ViewPose {
   const target = new Vector3(origin[0], origin[1], origin[2]).add(face.center);
-  const dist = Math.max(sizeMm * 1.7, 20);
+  const dist = faceViewDistance(face, fovDeg);
   const n = unitOr(face.normal, new Vector3(0, 0, 1));
   const position = target.clone().addScaledVector(n, dist);
   let up = face.bitangent.clone();

@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import { PerspectiveCamera, Vector3 } from "three";
 import {
   applyViewPose,
+  faceViewDistance,
+  faceViewPose,
   interpolatePose,
   overviewViewPose,
   slerpUnit,
   type ViewPose,
 } from "./cameraFocus";
+import { extractFaces, faceCircumradius } from "./faces";
+import { createDieGeometry } from "./geometry";
+import { numberFaces } from "./numbering";
 
 describe("camera pose interpolation", () => {
   it("slerps unit vectors along an arc", () => {
@@ -65,6 +70,33 @@ describe("overview view", () => {
     expect(pose.target.toArray()).toEqual([0, 0, 0]);
     expect(pose.position.toArray()).toEqual([0, 12, 48]);
     expect(pose.up.toArray()).toEqual([0, 1, 0]);
+  });
+});
+
+describe("face inspect framing", () => {
+  it("sits along the D6 two-face normal instead of looking through a side neighbor", () => {
+    const geom = createDieGeometry("d6", 16);
+    const faces = numberFaces("d6", extractFaces(geom, "d6"), "0-9");
+    const two = faces.find((f) => f.label === "2");
+    expect(two).toBeTruthy();
+    const pose = faceViewPose([0, 0, 0], two!, 16);
+    expect(two!.normal.z).toBeGreaterThan(0.9);
+    expect(pose.position.z).toBeGreaterThan(Math.abs(pose.position.x) + 4);
+    const look = two!.center.clone().sub(pose.position).normalize();
+    expect(look.dot(two!.normal.clone().negate())).toBeGreaterThan(0.98);
+  });
+
+  it("frames a D20 face by its own size so neighboring facets fall out of view", () => {
+    const d20 = extractFaces(createDieGeometry("d20", 20), "d20")[0];
+    const d6 = extractFaces(createDieGeometry("d6", 16), "d6")[0];
+    const close = faceViewDistance(d20);
+    const cube = faceViewDistance(d6);
+    expect(close).toBeLessThan(cube * 0.75);
+    expect(close).toBeLessThan(20);
+    const r = faceCircumradius(d20);
+    const half = (46 / 2) * (Math.PI / 180);
+    const cornerAngle = Math.atan(r / close);
+    expect(cornerAngle).toBeGreaterThan(half * 0.7);
   });
 });
 

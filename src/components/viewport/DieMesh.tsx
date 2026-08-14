@@ -8,7 +8,7 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
-import type { DieFace } from "../../engine/faces";
+import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
 
 function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   const ref = useRef<ThreeMesh>(null);
@@ -68,14 +68,16 @@ export function DieMesh({
   const highlight = useMemo(() => {
     if (selectedFace === null) return null;
     const face = faces[selectedFace];
-    if (!face || face.vertices.length < 3) return null;
+    if (!face) return null;
+    const ring = faceOutline3D(face);
+    if (ring.length < 3) return null;
     const geom = new BufferGeometry();
     const verts: number[] = [];
     const lift = face.normal.clone().multiplyScalar(0.14);
-    const origin = face.vertices[0].clone().add(lift);
-    for (let i = 1; i < face.vertices.length - 1; i++) {
-      const b = face.vertices[i].clone().add(lift);
-      const d = face.vertices[i + 1].clone().add(lift);
+    const origin = ring[0].clone().add(lift);
+    for (let i = 1; i < ring.length - 1; i++) {
+      const b = ring[i].clone().add(lift);
+      const d = ring[i + 1].clone().add(lift);
       verts.push(origin.x, origin.y, origin.z, b.x, b.y, b.z, d.x, d.y, d.z);
     }
     if (verts.length < 9) return null;
@@ -83,6 +85,16 @@ export function DieMesh({
     geom.computeVertexNormals();
     return geom;
   }, [faces, selectedFace]);
+
+  const shaded = useMemo(() => geometryFromFaces(faces), [faces]);
+  const displayBody = shaded ?? body;
+
+  useLayoutEffect(() => {
+    return () => {
+      shaded?.dispose();
+      highlight?.dispose();
+    };
+  }, [shaded, highlight]);
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -94,12 +106,11 @@ export function DieMesh({
 
   return (
     <group>
-      <mesh geometry={body} onClick={onClick}>
+      <mesh geometry={displayBody} onClick={onClick}>
         <meshStandardMaterial
           color={color}
-          roughness={0.38}
+          roughness={0.52}
           metalness={0.02}
-          flatShading
           emissive={selected ? "#5c4018" : "#110a06"}
           emissiveIntensity={selected ? 0.28 : 0.04}
         />

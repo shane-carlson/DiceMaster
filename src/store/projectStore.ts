@@ -34,6 +34,8 @@ export interface WorkshopState {
   selectedDieId: string | null;
   selectedFaceIndex: number | null;
   focusGeneration: number;
+  viewResetGeneration: number;
+  previewMode: "overview" | "die" | "face";
   hydrate: () => void;
   setName: (name: string) => void;
   setFontId: (fontId: string) => void;
@@ -47,6 +49,7 @@ export interface WorkshopState {
   selectDieFace: (id: string, faceIndex: number) => void;
   focusDie: (id: string) => void;
   focusDieFace: (id: string, faceIndex: number) => void;
+  resetView: () => void;
   selectFace: (index: number | null) => void;
   updateDie: (id: string, patch: Partial<DieInstance>) => void;
   setSizeFormat: (id: string, format: SizeFormatId | "custom", sizeMm?: number) => void;
@@ -79,6 +82,8 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
   selectedDieId: null,
   selectedFaceIndex: null,
   focusGeneration: 0,
+  viewResetGeneration: 0,
+  previewMode: "overview",
 
   hydrate: () => {
     const local = loadLocal();
@@ -91,6 +96,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
       project: local,
       selectedDieId: local.dice[0]?.id ?? null,
       selectedFaceIndex: null,
+      previewMode: "overview",
     });
   },
 
@@ -134,7 +140,12 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
       const dice = diceFromTemplate(template);
       const project = { ...s.project, name: template.name, dice };
       persist(project);
-      return { project, selectedDieId: dice[0]?.id ?? null, selectedFaceIndex: null };
+      return {
+        project,
+        selectedDieId: dice[0]?.id ?? null,
+        selectedFaceIndex: null,
+        previewMode: "overview" as const,
+      };
     });
   },
 
@@ -178,13 +189,20 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
     set((s) => ({
       selectedDieId: id,
       selectedFaceIndex: null,
+      previewMode: "die",
       focusGeneration: s.focusGeneration + 1,
     })),
   focusDieFace: (id, faceIndex) =>
     set((s) => ({
       selectedDieId: id,
       selectedFaceIndex: faceIndex,
+      previewMode: "face",
       focusGeneration: s.focusGeneration + 1,
+    })),
+  resetView: () =>
+    set((s) => ({
+      previewMode: "overview",
+      viewResetGeneration: s.viewResetGeneration + 1,
     })),
   selectFace: (index) => set({ selectedFaceIndex: index }),
 

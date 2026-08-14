@@ -4,6 +4,7 @@ import {
   extractFaces,
   faceEdgeDistances,
   faceInradius,
+  geometryFromFaces,
   glyphFitSize,
   polygonIncenter2,
 } from "./faces";
@@ -186,5 +187,25 @@ describe("face centers", () => {
     const c = polygonIncenter2(tri);
     expect(c.x).toBeCloseTo(1, 6);
     expect(c.y).toBeCloseTo(h / 3, 6);
+  });
+
+  it("gives every triangle of a cube face the same normal", () => {
+    const faces = extractFaces(createDieGeometry("d6", 16), "d6");
+    const geom = geometryFromFaces(faces);
+    expect(geom).toBeTruthy();
+    const nrm = geom!.getAttribute("normal");
+    const pos = geom!.getAttribute("position");
+    expect(pos.count % 3).toBe(0);
+    for (let t = 0; t < pos.count; t += 3) {
+      const nx = nrm.getX(t);
+      const ny = nrm.getY(t);
+      const nz = nrm.getZ(t);
+      expect(nrm.getX(t + 1)).toBeCloseTo(nx, 6);
+      expect(nrm.getY(t + 1)).toBeCloseTo(ny, 6);
+      expect(nrm.getZ(t + 1)).toBeCloseTo(nz, 6);
+      expect(nrm.getX(t + 2)).toBeCloseTo(nx, 6);
+      expect(nrm.getY(t + 2)).toBeCloseTo(ny, 6);
+      expect(nrm.getZ(t + 2)).toBeCloseTo(nz, 6);
+    }
   });
 });

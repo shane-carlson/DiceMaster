@@ -1,4 +1,4 @@
-import { BufferGeometry, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, Vector3 } from "three";
 import type { DieType } from "./types";
 
 export interface DieFace {
@@ -304,6 +304,42 @@ export function faceOutline2D(face: DieFace): { x: number; y: number }[] {
   const hull = monotoneHull2D(pts);
   if (hull.length >= 3) return hull;
   return [...pts].sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
+}
+
+/** World-space convex outline, wound to match the outward face normal. */
+export function faceOutline3D(face: DieFace): Vector3[] {
+  return faceOutline2D(face).map((p) =>
+    face.center.clone().addScaledVector(face.tangent, p.x).addScaledVector(face.bitangent, p.y),
+  );
+}
+
+export function faceCircumradius(face: DieFace): number {
+  let r = 0;
+  for (const v of face.vertices) r = Math.max(r, v.distanceTo(face.center));
+  return r;
+}
+
+/** Display mesh: one constant normal per logical face so quads don't show a diagonal crease. */
+export function geometryFromFaces(faces: DieFace[]): BufferGeometry | null {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  for (const face of faces) {
+    const ring = faceOutline3D(face);
+    if (ring.length < 3) continue;
+    const n = face.normal;
+    const origin = ring[0];
+    for (let i = 1; i < ring.length - 1; i++) {
+      const b = ring[i];
+      const c = ring[i + 1];
+      positions.push(origin.x, origin.y, origin.z, b.x, b.y, b.z, c.x, c.y, c.z);
+      for (let k = 0; k < 3; k++) normals.push(n.x, n.y, n.z);
+    }
+  }
+  if (positions.length < 9) return null;
+  const geom = new BufferGeometry();
+  geom.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3));
+  geom.setAttribute("normal", new BufferAttribute(new Float32Array(normals), 3));
+  return geom;
 }
 
 function triangleIncenter2(a: Pt2, b: Pt2, c: Pt2): Pt2 {
