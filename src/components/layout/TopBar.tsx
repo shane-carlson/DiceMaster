@@ -77,7 +77,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
           {signedIn ? "Save to vault" : "Save"}
         </button>
         <button className="btn btn-small" onClick={() => downloadJson(project)}>
-          JSON
+          Save Local (JSON)
         </button>
         <button className="btn btn-gold btn-small" onClick={onExport}>
           Export STL
