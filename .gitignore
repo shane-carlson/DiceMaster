@@ -23,3 +23,6 @@ coverage
 # Env
 .env
 .env.*
+
+# User vault (accounts, sessions, blobs)
+data/

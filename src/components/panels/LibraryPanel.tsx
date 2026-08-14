@@ -1,10 +1,15 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Link } from "react-router-dom";
 import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/fonts";
 import { uid } from "../../engine/id";
 import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, GlyphSettings, SizeFormatId } from "../../engine/types";
 import { symbolsByCategory, SYMBOL_CREDIT } from "../../engine/symbols";
+import { useAuthStore } from "../../store/authStore";
 import { useProjectStore } from "../../store/projectStore";
+import { api } from "../../api/client";
+import type { AssetSummary, SavedSetSummary } from "../../../shared/account";
+import { openSavedSet, saveCurrentSet, saveFontAsset, saveLogoAsset } from "../../sync/workspaceSync";
 
 const ADDABLE: { type: DieType; label: string }[] = [
   { type: "d2", label: "D2" },
@@ -35,20 +40,42 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
   const revealInspector = useProjectStore((s) => s.revealInspector);
   const fontRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
-  const [placeMode, setPlaceMode] = useState<"add" | "replace">("add");
+  const [placeMode, setPlaceModeLocal] = useState<"add" | "replace">("add");
+  const signedIn = useAuthStore((s) => s.status === "signed-in");
+  const savedPlaceMode = useAuthStore((s) => s.settings.placeMode);
+  const [vaultSets, setVaultSets] = useState<SavedSetSummary[]>([]);
+  const [vaultAssets, setVaultAssets] = useState<AssetSummary[]>([]);
+
+  const placeModeActive = signedIn ? savedPlaceMode : placeMode;
+  const setPlaceMode = (mode: "add" | "replace") => {
+    if (signedIn) useAuthStore.getState().patchSettings({ placeMode: mode });
+    else setPlaceModeLocal(mode);
+  };
+
+  useEffect(() => {
+    if (!signedIn) return;
+    void Promise.all([api.listSets(), api.listAssets()]).then(([sets, assets]) => {
+      setVaultSets(sets.sets);
+      setVaultAssets(assets.assets);
+    });
+  }, [signedIn, project.logos.length, project.customFontName]);
 
   const onFont = async (file: File) => {
     const buf = await file.arrayBuffer();
-    setCustomFont(file.name, arrayBufferToBase64(buf));
+    const data = arrayBufferToBase64(buf);
+    setCustomFont(file.name, data);
+    void saveFontAsset({ name: file.name, data });
   };
 
   const onLogo = async (file: File) => {
     if (file.type.includes("svg") || file.name.endsWith(".svg")) {
       const data = await file.text();
       addLogo({ id: uid(), name: file.name, kind: "svg", data });
+      void saveLogoAsset({ name: file.name, mime: "image/svg+xml", data });
     } else {
       const data = await readDataUrl(file);
       addLogo({ id: uid(), name: file.name, kind: "png", data });
+      void saveLogoAsset({ name: file.name, mime: file.type || "image/png", data });
     }
   };
 
@@ -61,6 +88,32 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
 
   return (
     <aside className="panel">
+      <h2>Your vault</h2>
+      {signedIn ? (
+        <>
+          <div className="chip-row" style={{ marginBottom: 8 }}>
+            <button className="btn btn-small" onClick={() => void saveCurrentSet(project.name)}>
+              Save this set
+            </button>
+            <Link to="/account" className="btn btn-small">
+              Manage
+            </Link>
+          </div>
+          <div className="chip-row">
+            {vaultSets.slice(0, 8).map((set) => (
+              <button key={set.id} className="chip" onClick={() => void openSavedSet(set.id)}>
+                {set.name}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="help">
+          <Link to="/signup">Sign up</Link> to keep sets, logos, and fonts in a vault that follows
+          you back.
+        </p>
+      )}
+
       <h2>Templates</h2>
       <div className="chip-row">
         {SET_TEMPLATES.filter((t) => t.featured).map((t) => (
@@ -157,6 +210,23 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
         <button className="btn btn-small" onClick={() => fontRef.current?.click()}>
           Upload TTF / OTF
         </button>
+        {signedIn && vaultAssets.some((a) => a.kind === "font") && (
+          <div className="chip-row" style={{ marginTop: 8 }}>
+            {vaultAssets
+              .filter((a) => a.kind === "font")
+              .map((asset) => (
+                <button
+                  key={asset.id}
+                  className="chip"
+                  onClick={() => {
+                    void api.getAsset(asset.id).then((full) => setCustomFont(full.name, full.data));
+                  }}
+                >
+                  {asset.name}
+                </button>
+              ))}
+          </div>
+        )}
         <input
           ref={fontRef}
           className="hidden-input"
@@ -175,13 +245,13 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       </p>
       <div className="kind-tabs">
         <button
-          className={`chip ${placeMode === "add" ? "active" : ""}`}
+          className={`chip ${placeModeActive === "add" ? "active" : ""}`}
           onClick={() => setPlaceMode("add")}
         >
           Add beside number
         </button>
         <button
-          className={`chip ${placeMode === "replace" ? "active" : ""}`}
+          className={`chip ${placeModeActive === "replace" ? "active" : ""}`}
           onClick={() => setPlaceMode("replace")}
         >
           Replace number
@@ -206,7 +276,7 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
             key={logo.id}
             className="btn btn-small"
             onClick={() => {
-              if (placeMode === "add") {
+              if (placeModeActive === "add") {
                 placeOnFace("emblem", { kind: "logo", logoId: logo.id, text: "" });
               } else {
                 placeOnFace("primary", { kind: "logo", logoId: logo.id, text: "" });
@@ -216,6 +286,33 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
             {logo.name}
           </button>
         ))}
+        {signedIn &&
+          vaultAssets
+            .filter((a) => a.kind === "logo" && !project.logos.some((l) => l.name === a.name))
+            .map((asset) => (
+              <button
+                key={asset.id}
+                className="btn btn-small"
+                onClick={() => {
+                  void api.getAsset(asset.id).then((full) => {
+                    const logo = {
+                      id: uid(),
+                      name: full.name,
+                      kind: (full.mime.includes("svg") ? "svg" : "png") as "svg" | "png",
+                      data: full.data,
+                    };
+                    addLogo(logo);
+                    if (placeModeActive === "add") {
+                      placeOnFace("emblem", { kind: "logo", logoId: logo.id, text: "" });
+                    } else {
+                      placeOnFace("primary", { kind: "logo", logoId: logo.id, text: "" });
+                    }
+                  });
+                }}
+              >
+                {asset.name}
+              </button>
+            ))}
       </div>
 
       <h2>Symbol vault</h2>
@@ -230,7 +327,7 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
               className="symbol-btn"
               title={s.name}
               onClick={() => {
-                if (placeMode === "add") {
+                if (placeModeActive === "add") {
                   placeOnFace("emblem", { kind: "symbol", symbolId: s.id, text: "" });
                 } else {
                   placeOnFace("primary", { kind: "symbol", symbolId: s.id, text: "" });

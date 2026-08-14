@@ -29,7 +29,23 @@ npm test
 npm run build
 ```
 
-The app is a Vite + React client. Geometry and CSG engraving run in the browser; nothing is uploaded to a server.
+The app is a Vite + React client with a small Node account API. Geometry and CSG engraving still run in the browser. Sign in to keep sets, logos, fonts, and workshop position in a private vault; guests keep working in local storage.
+
+## Accounts and vault
+
+```bash
+npm install
+npm run dev
+```
+
+This starts the workshop on port 5173 and the account API on port 8787 (`/api` is proxied). Data lives in `./data` (override with `DATA_DIR`). After `npm run build`, `npm start` serves the API and the built site together.
+
+- **Sign up / Sign in** — cookie session (30 days). Returning visits restore the last set, selected face, and panel.
+- **Profile** — `/account` to change display name, email, or password.
+- **Saved sets** — named snapshots in your vault; Save to vault from the workshop.
+- **Logos and fonts** — uploads are stored as blobs per account and can be reused across sets.
+
+Guest mode still works offline. Creating an account copies the current local set into the vault.
 
 ## Fonts
 

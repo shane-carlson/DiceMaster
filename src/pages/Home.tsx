@@ -1,26 +1,28 @@
 import { Link } from "react-router-dom";
+import { Brand } from "../components/layout/Brand";
+import { UserLinks } from "../components/layout/UserLinks";
 import { HeroScene } from "../components/viewport/HeroScene";
 import { SET_TEMPLATES } from "../engine/templates";
 import { SIZE_CHART } from "../engine/sizes";
+import { useAuthStore } from "../store/authStore";
 
 export function Home() {
+  const user = useAuthStore((s) => s.user);
+  const status = useAuthStore((s) => s.status);
+  const workspace = useAuthStore((s) => s.workspace);
+  const continueTo = workspace?.session.lastPath === "/account" ? "/account" : "/workshop";
+  const setName = workspace?.project?.name;
+
   return (
     <div className="home">
       <nav className="home-nav">
-        <div className="brand">
-          <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden>
-            <path
-              d="M32 8 L56 22 L56 42 L32 56 L8 42 L8 22 Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-            />
-          </svg>
-          <span className="brand-name">DICEMASTER</span>
+        <Brand />
+        <div className="home-nav-actions">
+          <UserLinks gold />
+          <Link to="/workshop" className="btn btn-gold">
+            Enter the workshop
+          </Link>
         </div>
-        <Link to="/workshop" className="btn btn-gold">
-          Enter the workshop
-        </Link>
       </nav>
 
       <section className="hero">
@@ -36,6 +38,14 @@ export function Home() {
             sets — then export STL masters for your own printer. Inspired by the craft of
             DiceMaker, built for the web.
           </p>
+          {status === "signed-in" && user && (
+            <p className="lede continue-line">
+              Welcome back, {user.displayName}.{" "}
+              <Link to={continueTo}>
+                Continue {setName ? `“${setName}”` : "your workshop"}
+              </Link>
+            </p>
+          )}
           <div className="hero-actions">
             <Link to="/workshop?template=standard-polyhedral" className="btn btn-gold">
               Start with a standard set

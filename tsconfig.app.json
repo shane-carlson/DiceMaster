@@ -19,6 +19,6 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
   },
-  "include": ["src"],
+  "include": ["src", "shared"],
   "exclude": ["src/**/*.test.ts"]
 }

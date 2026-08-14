@@ -1,7 +1,10 @@
-import { useRef } from "react";
-import { Link } from "react-router-dom";
+import { useRef, useState } from "react";
 import { downloadJson, parseProject } from "../../engine/projectIO";
+import { useAuthStore } from "../../store/authStore";
 import { useProjectStore } from "../../store/projectStore";
+import { saveCurrentSet } from "../../sync/workspaceSync";
+import { Brand } from "./Brand";
+import { UserLinks } from "./UserLinks";
 
 export function TopBar({ onExport }: { onExport: () => void }) {
   const name = useProjectStore((s) => s.project.name);
@@ -9,27 +12,29 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   const setName = useProjectStore((s) => s.setName);
   const replaceProject = useProjectStore((s) => s.replaceProject);
   const resetProject = useProjectStore((s) => s.resetProject);
+  const signedIn = useAuthStore((s) => s.status === "signed-in");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const load = async (file: File) => {
     const text = await file.text();
     replaceProject(parseProject(text));
   };
 
+  const onSave = async () => {
+    if (signedIn) {
+      await saveCurrentSet(name);
+      setNote("Saved to vault");
+      window.setTimeout(() => setNote(null), 1800);
+      return;
+    }
+    downloadJson(project);
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <Link to="/" className="brand">
-          <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden>
-            <path
-              d="M32 8 L56 22 L56 42 L32 56 L8 42 L8 22 Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-            />
-          </svg>
-          <span className="brand-name">DICEMASTER</span>
-        </Link>
+        <Brand />
         <input
           className="project-name"
           value={name}
@@ -38,8 +43,12 @@ export function TopBar({ onExport }: { onExport: () => void }) {
         />
       </div>
       <div className="topbar-right">
+        {note && <span className="save-pill">{note}</span>}
+        <button className="btn btn-small" onClick={() => void onSave()}>
+          {signedIn ? "Save to vault" : "Save"}
+        </button>
         <button className="btn btn-small" onClick={() => downloadJson(project)}>
-          Save
+          JSON
         </button>
         <button className="btn btn-small" onClick={() => fileRef.current?.click()}>
           Load
@@ -54,12 +63,19 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             if (file) void load(file);
           }}
         />
-        <button className="btn btn-small" onClick={resetProject}>
+        <button
+          className="btn btn-small"
+          onClick={() => {
+            resetProject();
+            useAuthStore.getState().patchSession({ lastSetId: null });
+          }}
+        >
           New set
         </button>
         <button className="btn btn-gold btn-small" onClick={onExport}>
           Export STL
         </button>
+        <UserLinks />
       </div>
     </header>
   );
