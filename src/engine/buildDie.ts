@@ -1,5 +1,6 @@
 import {
   BufferGeometry,
+  CircleGeometry,
   CylinderGeometry,
   Matrix4,
   Mesh,
@@ -108,7 +109,7 @@ async function placedFromGlyph(
           logos,
           fit,
           inset ? PREVIEW_INK_HEIGHT : depth,
-          "outset",
+          inset ? "decal" : "outset",
           false,
           segments,
         );
@@ -143,11 +144,16 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const cut = cutterPlacement(depth, die.engraveMode);
   const pts = pipPositions(value, span);
   const inset = die.engraveMode !== "emboss";
-  const previewH = inset ? PREVIEW_INK_HEIGHT : depth;
   return pts.map((p) => {
-    const preview = new CylinderGeometry(radius, radius, previewH, 20);
-    preview.rotateX(Math.PI / 2);
-    preview.translate(0, 0, previewH / 2);
+    let preview: BufferGeometry;
+    if (inset) {
+      preview = new CircleGeometry(radius, 24);
+      preview.translate(0, 0, PREVIEW_INK_HEIGHT);
+    } else {
+      preview = new CylinderGeometry(radius, radius, depth, 20);
+      preview.rotateX(Math.PI / 2);
+      preview.translate(0, 0, depth / 2);
+    }
     const cutter = new CylinderGeometry(radius, radius, cut.height, 20);
     cutter.rotateX(Math.PI / 2);
     return {

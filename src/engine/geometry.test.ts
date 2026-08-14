@@ -375,8 +375,8 @@ describe("carved preview wells", () => {
       min = Math.min(min, along);
       max = Math.max(max, along);
     }
-    expect(min).toBeGreaterThan(-0.02);
-    expect(max).toBeGreaterThan(PREVIEW_INK_HEIGHT * 0.7);
-    expect(max).toBeLessThan(PREVIEW_INK_HEIGHT + 0.05);
+    expect(min).toBeGreaterThan(0.05);
+    expect(max - min).toBeLessThan(0.02);
+    expect(max).toBeCloseTo(PREVIEW_INK_HEIGHT, 2);
   }, 15_000);
 });

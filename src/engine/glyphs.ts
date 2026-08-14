@@ -331,7 +331,96 @@ function extrudeRings(outer: Vector2[], holes: Vector2[][], depth: number): numb
   return verts;
 }
 
-export type GlyphZAlign = "center" | "inset" | "outset";
+function ringArea(pts: Vector2[]): number {
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    area += p.x * q.y - q.x * p.y;
+  }
+  return area / 2;
+}
+
+/**
+ * Font Path.toShapes sometimes stores the outline as a hole. Use the largest
+ * ring as the outer fill and keep only smaller rings as counters.
+ */
+export function fillRings(
+  shape: Shape,
+  divisions = 16,
+): { outer: Vector2[]; holes: Vector2[][] } | null {
+  const rings = shapeRings(shape, divisions);
+  if (!rings) return null;
+  const outerArea = Math.abs(ringArea(rings.outer));
+  const holes = rings.holes.map((pts) => ({ pts, area: Math.abs(ringArea(pts)) }));
+  holes.sort((a, b) => b.area - a.area);
+  const biggest = holes[0];
+  if (biggest && biggest.area > outerArea * 1.15) {
+    const outer = biggest.pts;
+    if (ShapeUtils.isClockWise(outer)) outer.reverse();
+    const rest = holes.slice(1).filter((h) => h.area > biggest.area * 0.02);
+    return {
+      outer,
+      holes: rest.map((h) => {
+        if (!ShapeUtils.isClockWise(h.pts)) h.pts.reverse();
+        return h.pts;
+      }),
+    };
+  }
+  return rings;
+}
+
+/** Single-sided letter fill sitting at z, with no walls or coplanar back cap. */
+export function letterDecalGeometry(
+  shapes: Shape[],
+  z = 0.12,
+  curveSegments = 8,
+): BufferGeometry | null {
+  if (shapes.length === 0) return null;
+  const divisions = Math.max(12, curveSegments);
+  const prepared: { outer: Vector2[]; holes: Vector2[][] }[] = [];
+  for (const shape of shapes) {
+    const rings = fillRings(shape, divisions);
+    if (rings) prepared.push(rings);
+  }
+  if (prepared.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const visit = (p: Vector2) => {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  };
+  for (const ring of prepared) {
+    ring.outer.forEach(visit);
+    for (const hole of ring.holes) hole.forEach(visit);
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const verts: number[] = [];
+  for (const ring of prepared) {
+    const faces = ShapeUtils.triangulateShape(ring.outer, ring.holes);
+    const all = ring.outer.concat(...ring.holes);
+    for (const face of faces) {
+      const a = all[face[0]];
+      const b = all[face[1]];
+      const c = all[face[2]];
+      if (!a || !b || !c) continue;
+      verts.push(a.x - cx, a.y - cy, z, b.x - cx, b.y - cy, z, c.x - cx, c.y - cy, z);
+    }
+  }
+  if (verts.length < 9) return null;
+  const geom = new BufferGeometry();
+  geom.setAttribute("position", new BufferAttribute(new Float32Array(verts), 3));
+  geom.computeVertexNormals();
+  return geom;
+}
+
+export type GlyphZAlign = "center" | "inset" | "outset" | "decal";
 
 export interface GlyphShapeContours {
   outer: { x: number; y: number }[];
@@ -555,7 +644,10 @@ export async function buildGlyphGeometry(
   const cx = (scaledBb.minX + scaledBb.maxX) / 2;
   const cy = (scaledBb.minY + scaledBb.maxY) / 2;
   const contours = contoursFromShapes(scaled, -cx, -cy);
-  const geometry = extrudeShapes(scaled, depth, align, openFace, curveSegments);
+  const geometry =
+    align === "decal"
+      ? letterDecalGeometry(scaled, Math.max(depth, 0.08), curveSegments)
+      : extrudeShapes(scaled, depth, align, openFace, curveSegments);
   if (!geometry) return null;
   return { geometry, width: w * scale, height: h * scale, contours };
 }

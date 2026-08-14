@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Shape } from "three";
-import { extrudeShapes, underscoreBar } from "./glyphs";
+import { Path, Shape } from "three";
+import { extrudeShapes, letterDecalGeometry, underscoreBar } from "./glyphs";
 import { DEFAULT_DEPTH } from "./sizes";
 
 describe("6/9 underscore", () => {
@@ -57,5 +57,43 @@ describe("engraved glyph wells", () => {
     expect(bb.max.z - bb.min.z).toBeCloseTo(depth, 5);
     const tris = geom!.getAttribute("position")!.count / 3;
     expect(tris).toBeGreaterThanOrEqual(12);
+  });
+});
+
+describe("preview letter decals", () => {
+  it("is a single plane with no walls", () => {
+    const s = new Shape();
+    s.moveTo(-2, -3);
+    s.lineTo(2, -3);
+    s.lineTo(2, 3);
+    s.lineTo(-2, 3);
+    s.closePath();
+    const geom = letterDecalGeometry([s], 0.12)!;
+    geom.computeBoundingBox();
+    const bb = geom.boundingBox!;
+    expect(bb.max.z).toBeCloseTo(0.12, 5);
+    expect(bb.min.z).toBeCloseTo(0.12, 5);
+    expect(bb.max.x - bb.min.x).toBeCloseTo(4, 1);
+  });
+
+  it("uses an inverted hole as the letter outline", () => {
+    const s = new Shape();
+    s.moveTo(-0.4, -0.4);
+    s.lineTo(0.4, -0.4);
+    s.lineTo(0.4, 0.4);
+    s.lineTo(-0.4, 0.4);
+    s.closePath();
+    const hole = new Path();
+    hole.moveTo(-3, -5);
+    hole.lineTo(3, -5);
+    hole.lineTo(3, 5);
+    hole.lineTo(-3, 5);
+    hole.closePath();
+    s.holes.push(hole);
+    const geom = letterDecalGeometry([s], 0.12)!;
+    geom.computeBoundingBox();
+    const bb = geom.boundingBox!;
+    expect(bb.max.x - bb.min.x).toBeGreaterThan(5);
+    expect(bb.max.y - bb.min.y).toBeGreaterThan(8);
   });
 });
