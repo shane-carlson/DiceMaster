@@ -1,4 +1,6 @@
 import type { Project } from "./types";
+import { ensureCarveDepth, ensureFaceCount } from "./defaults";
+import { defaultCarveDepth } from "./carve";
 
 const STORAGE_KEY = "dicemaster.project.v1";
 
@@ -11,7 +13,11 @@ export function parseProject(raw: string): Project {
   if (!data || data.version !== 1 || !Array.isArray(data.dice)) {
     throw new Error("This file is not a DiceMaster project.");
   }
-  return data;
+  return {
+    ...data,
+    globalDepth: defaultCarveDepth("standard"),
+    dice: data.dice.map((d) => ensureCarveDepth(ensureFaceCount(d))),
+  };
 }
 
 export function saveLocal(project: Project) {

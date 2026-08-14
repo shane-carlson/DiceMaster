@@ -13,9 +13,10 @@ import {
   SUBTRACTION,
 } from "three-bvh-csg";
 import type { Font } from "opentype.js";
-import { extractFaces, faceInradius, glyphFitSize, type DieFace } from "./faces";
+import { extractFaces, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
+import { cutterPlacement, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
@@ -113,10 +114,10 @@ async function placedFromGlyph(
   role: PlacedGlyph["role"],
   placement?: { ox: number; oy: number; rotation: number; fitMul?: number },
 ): Promise<PlacedGlyph | null> {
-  const depth = glyph.depth ?? die.engravingDepth;
+  const depth = resolveCarveDepth(die, glyph.depth);
   const fit = glyphFitSize(face) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
-  const cutterDepth = Math.min(Math.max(depth * 1.8, 0.7), faceInradius(face) * 0.9);
   const inset = die.engraveMode !== "emboss";
+  const cut = cutterPlacement(depth, die.engraveMode);
   const preview = await buildGlyphGeometry(
     glyph,
     font,
@@ -125,19 +126,17 @@ async function placedFromGlyph(
     depth,
     inset ? "inset" : "outset",
   );
-  const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cutterDepth, "center");
+  const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cut.height, "center");
   if (!preview || !cutter) return null;
   const ox = (placement?.ox ?? 0) + glyph.offsetX * fit * 0.45;
   const oy = (placement?.oy ?? 0) + glyph.offsetY * fit * 0.45;
   const rotation = (placement?.rotation ?? 0) + glyph.rotation;
-  const wellZ = -depth;
-  const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.25;
   return {
     geometry: preview.geometry,
-    matrix: faceMatrix(face, inset ? 0.05 : 0, rotation, ox, oy),
-    wellMatrix: faceMatrix(face, wellZ, rotation, ox, oy),
+    matrix: faceMatrix(face, 0, rotation, ox, oy),
+    wellMatrix: faceMatrix(face, -depth, rotation, ox, oy),
     cutter: cutter.geometry,
-    cutterMatrix: faceMatrix(face, cutterZ, rotation, ox, oy),
+    cutterMatrix: faceMatrix(face, cut.zOffset, rotation, ox, oy),
     faceIndex: face.index,
     role,
     depth,
@@ -155,8 +154,8 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const fit = glyphFitSize(face);
   const span = fit * 0.28;
   const radius = fit * 0.09 * die.fontScale;
-  const depth = die.engravingDepth;
-  const cutterDepth = Math.min(Math.max(depth * 1.8, 0.7), faceInradius(face) * 0.9);
+  const depth = resolveCarveDepth(die);
+  const cut = cutterPlacement(depth, die.engraveMode);
   const pts = pipPositions(value, span);
   const inset = die.engraveMode !== "emboss";
   return pts.map((p) => {
@@ -164,20 +163,14 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
     preview.rotateX(Math.PI / 2);
     if (inset) preview.translate(0, 0, -depth / 2);
     else preview.translate(0, 0, depth / 2);
-    const cutter = new CylinderGeometry(radius, radius, cutterDepth, 20);
+    const cutter = new CylinderGeometry(radius, radius, cut.height, 20);
     cutter.rotateX(Math.PI / 2);
     return {
       geometry: preview,
-      matrix: faceMatrix(face, inset ? 0.05 : 0, 0, p.x, p.y),
+      matrix: faceMatrix(face, 0, 0, p.x, p.y),
       wellMatrix: faceMatrix(face, -depth, 0, p.x, p.y),
       cutter,
-      cutterMatrix: faceMatrix(
-        face,
-        die.engraveMode === "emboss" ? depth * 0.4 : -depth * 0.25,
-        0,
-        p.x,
-        p.y,
-      ),
+      cutterMatrix: faceMatrix(face, cut.zOffset, 0, p.x, p.y),
       faceIndex: face.index,
       role: "pip" as const,
       depth,

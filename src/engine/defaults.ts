@@ -1,5 +1,6 @@
 import { uid } from "./id";
-import { DEFAULT_BUMPER, DEFAULT_DEPTH, sizeFor } from "./sizes";
+import { DEFAULT_BUMPER, sizeFor } from "./sizes";
+import { defaultCarveDepth, resolveCarveDepth } from "./carve";
 import type {
   DieInstance,
   DieType,
@@ -71,7 +72,7 @@ export function createDie(
     sizeMm: sizeFor(type, format),
     sizeFormat: format,
     cornerRounding: 0.18,
-    engravingDepth: DEFAULT_DEPTH[format],
+    engravingDepth: defaultCarveDepth(format),
     fontScale: 1,
     color: DIE_COLORS[colorIndex % DIE_COLORS.length],
     bumpers: false,
@@ -81,7 +82,7 @@ export function createDie(
     numberStyle: "numerals",
     faces: makeFaces(type, d10Style),
   };
-  return { ...die, ...extras, type, faces: extras.faces ?? die.faces };
+  return ensureCarveDepth({ ...die, ...extras, type, faces: extras.faces ?? die.faces });
 }
 
 export function rescaleDie(die: DieInstance, format: SizeFormatId): DieInstance {
@@ -89,9 +90,15 @@ export function rescaleDie(die: DieInstance, format: SizeFormatId): DieInstance 
     ...die,
     sizeFormat: format,
     sizeMm: sizeFor(die.type, format),
-    engravingDepth: DEFAULT_DEPTH[format],
+    engravingDepth: defaultCarveDepth(format),
     bumperSize: DEFAULT_BUMPER[format],
   };
+}
+
+export function ensureCarveDepth(die: DieInstance): DieInstance {
+  const engravingDepth = resolveCarveDepth(die);
+  if (die.engravingDepth === engravingDepth) return die;
+  return { ...die, engravingDepth };
 }
 
 export function ensureFaceCount(die: DieInstance): DieInstance {

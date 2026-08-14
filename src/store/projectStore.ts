@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import { createDie, ensureFaceCount, makeGlyph, rescaleDie } from "../engine/defaults";
+import { createDie, ensureCarveDepth, ensureFaceCount, makeGlyph, rescaleDie } from "../engine/defaults";
 import { uid } from "../engine/id";
 import { loadLocal, saveLocal } from "../engine/projectIO";
 import { diceFromTemplate, templateById } from "../engine/templates";
+import { defaultCarveDepth } from "../engine/carve";
 import type {
   DieInstance,
   DieType,
@@ -18,7 +19,7 @@ function blankProject(): Project {
     version: 1,
     name: "Unnamed Set",
     fontId: "oswald",
-    globalDepth: 0.77,
+    globalDepth: defaultCarveDepth("standard"),
     globalFontScale: 1,
     dice: diceFromTemplate(templateById("standard-polyhedral")!),
     logos: [],
@@ -218,7 +219,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
           if (patch.d10Style && patch.d10Style !== d.d10Style) {
             next = ensureFaceCount(next);
           }
-          return next;
+          return ensureCarveDepth(next);
         }),
       };
       persist(project);
