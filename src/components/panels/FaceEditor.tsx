@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { arrayBufferToBase64, BUILTIN_FONTS } from "../../engine/fonts";
+import { arrayBufferToBase64, fontsByGroup } from "../../engine/fonts";
 import { previewFacesForSet, type FacePreview } from "../../engine/facePreview";
 import { numeralInk } from "../../engine/ink";
 import type { FaceKind } from "../../engine/types";
@@ -126,10 +126,14 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
         <label>
           Font
           <select value={project.fontId} onChange={(e) => setFontId(e.target.value)}>
-            {BUILTIN_FONTS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
+            {fontsByGroup().map((group) => (
+              <optgroup key={group.id} label={group.label}>
+                {group.fonts.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
             {project.customFontBase64 && (
               <option value="custom">{project.customFontName ?? "Custom TTF"}</option>

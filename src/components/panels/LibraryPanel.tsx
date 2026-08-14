@@ -1,7 +1,6 @@
 import { useRef, type CSSProperties } from "react";
-import { arrayBufferToBase64 } from "../../engine/fonts";
+import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/fonts";
 import { uid } from "../../engine/id";
-import { BUILTIN_FONTS } from "../../engine/fonts";
 import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, SizeFormatId } from "../../engine/types";
 import { SYMBOLS } from "../../engine/symbols";
@@ -125,10 +124,14 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       <h2>Fonts</h2>
       <div className="field">
         <select value={project.fontId} onChange={(e) => setFontId(e.target.value)}>
-          {BUILTIN_FONTS.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
+          {fontsByGroup().map((group) => (
+            <optgroup key={group.id} label={group.label}>
+              {group.fonts.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
           {project.customFontBase64 && (
             <option value="custom">{project.customFontName ?? "Custom TTF"}</option>

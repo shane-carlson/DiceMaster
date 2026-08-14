@@ -108,8 +108,8 @@ export function Home() {
           <article className="feature">
             <h3>Typefaces & numerals</h3>
             <p>
-              Load a TTF, pick a tavern gothic or a clean print face, then nudge scale, rotation,
-              and offset on every face.
+              Load a TTF, pick a tavern gothic, a sci-fi HUD, or an arcade cabinet face, then nudge
+              scale, rotation, and offset on every face.
             </p>
           </article>
           <article className="feature">

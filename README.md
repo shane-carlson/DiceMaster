@@ -11,7 +11,7 @@ Inspired by [DiceMaker](https://ankhe.itch.io/dicemaker) by ankhee — the deskt
 - **Chonk** oversized sets and a dedicated chonk D20
 - **Giant** display-scale pieces
 - Crystal D4, D2 coin, pip-style D6
-- Custom TTF/OTF fonts, built-in fantasy faces, SVG/PNG logos, and a symbol vault
+- Custom TTF/OTF fonts, 37 built-in OFL faces (fantasy, sci-fi, arcade), SVG/PNG logos, and a symbol vault
 - Per-face offset, rotation, scale, underscored 6/9, corner emblems, bumpers, engrave or emboss
 - Project save/load (JSON) and STL export (single file or ZIP)
 
@@ -33,11 +33,9 @@ The app is a Vite + React client. Geometry and CSG engraving run in the browser;
 
 ## Fonts
 
-Bundled typefaces are licensed under the SIL Open Font License:
+Bundled typefaces are licensed under the SIL Open Font License (37 faces):
 
-- Cinzel / Cinzel Decorative
-- Oswald
-- Uncial Antiqua
-- Medieval Sharp
-- Pirata One
-- Metamorphous
+- **Print & numerals** — Oswald, Anton, Archivo Black, Alfa Slab One, Bebas Neue
+- **Fantasy & historic** — Cinzel, Cinzel Decorative, Uncial Antiqua, Medieval Sharp, Pirata One, Metamorphous
+- **Sci-fi** — Orbitron, Audiowide, Michroma, Oxanium, Chakra Petch, Electrolize, Zen Dots, Turret Road, Quantico, Iceberg, Aldrich, Bruno Ace, Geo, Share Tech Mono
+- **Arcade & gamer** — Black Ops One, Bungee, Russo One, Press Start 2P, Silkscreen, Goldman, Bangers, Wallpoet, Titan One, Bowlby One SC, Righteous, Changa One
