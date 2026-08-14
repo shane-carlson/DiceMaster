@@ -31,7 +31,6 @@ function Bootstrap() {
 export default function App() {
   return (
     <div className="app-root">
-      <div className="grain" />
       <BrowserRouter>
         <Bootstrap />
         <SessionTracker />

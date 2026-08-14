@@ -9,14 +9,14 @@ export function SceneLights({ dimmed = false }: { dimmed?: boolean }) {
     return (
       <>
         <ambientLight color="#ffffff" intensity={1.2} />
-        <hemisphereLight color="#f4f7fb" groundColor="#c5cdd8" intensity={0.9} />
+        <hemisphereLight color="#ffffff" groundColor="#e0e0e0" intensity={0.9} />
       </>
     );
   }
   return (
     <>
       <ambientLight color="#ffffff" intensity={1.35} />
-      <hemisphereLight color="#f7f9fc" groundColor="#c8d0da" intensity={1.05} />
+      <hemisphereLight color="#ffffff" groundColor="#e0e0e0" intensity={1.05} />
       <directionalLight
         position={[30, 50, 35]}
         intensity={2.1}
@@ -24,8 +24,8 @@ export function SceneLights({ dimmed = false }: { dimmed?: boolean }) {
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
-      <directionalLight position={[-40, 18, -28]} intensity={0.55} color="#9ec4e8" />
-      <directionalLight position={[16, -12, 32]} intensity={0.35} color="#f0d8c8" />
+      <directionalLight position={[-40, 18, -28]} intensity={0.5} color="#d7e3f0" />
+      <directionalLight position={[16, -12, 32]} intensity={0.32} color="#f5f0ea" />
     </>
   );
 }
@@ -89,7 +89,7 @@ export function FaceInspectLight({ enabled }: { enabled: boolean }) {
   return (
     <>
       <directionalLight ref={key} color="#ffffff" />
-      <directionalLight ref={fill} color="#d7e4f2" />
+      <directionalLight ref={fill} color="#e8e8e8" />
     </>
   );
 }

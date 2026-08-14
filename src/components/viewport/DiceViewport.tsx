@@ -282,7 +282,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
           }}
         >
           <AimAtOrigin />
-          <color attach="background" args={["#e8eef5"]} />
+          <color attach="background" args={["#f5f5f5"]} />
           <SceneLights dimmed={inspectingFace} />
           <FaceInspectLight enabled={inspectingFace} />
           {dice.map((die, i) => (
@@ -299,11 +299,11 @@ export function DiceViewport({ font }: { font: Font | null }) {
             <>
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY - 0.02, 0]}>
                 <circleGeometry args={[layout.groundR, 64]} />
-                <meshBasicMaterial color="#dce3ec" />
+                <meshBasicMaterial color="#e0e0e0" />
               </mesh>
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY + 0.04, 0]}>
                 <ringGeometry args={[layout.groundR * 0.72, layout.groundR * 0.74, 64]} />
-                <meshBasicMaterial color="#3087c6" />
+                <meshBasicMaterial color="#0066cc" />
               </mesh>
             </>
           )}
