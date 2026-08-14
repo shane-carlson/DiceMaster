@@ -385,10 +385,16 @@ export function contoursFromShapes(
   divisions = 16,
 ): GlyphShapeContours[] {
   const shift = (pts: Vector2[]) => pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-  return shapes.map((shape) => ({
-    outer: shift(shape.getPoints(divisions)),
-    holes: shape.holes.map((hole) => shift(hole.getPoints(Math.max(8, divisions - 4)))),
-  }));
+  const out: GlyphShapeContours[] = [];
+  for (const shape of shapes) {
+    const rings = shapeRings(shape, divisions);
+    if (!rings) continue;
+    out.push({
+      outer: shift(rings.outer),
+      holes: rings.holes.map(shift),
+    });
+  }
+  return out;
 }
 
 function collectPositions(geom: BufferGeometry): number[] {

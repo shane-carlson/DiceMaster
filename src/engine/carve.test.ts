@@ -23,7 +23,7 @@ describe("carve depth", () => {
     const depth = defaultCarveDepth("standard");
     const { height, zOffset } = cutterPlacement(depth, "engrave");
     expect(zOffset - height / 2).toBeCloseTo(-depth, 6);
-    expect(zOffset + height / 2).toBeGreaterThan(0.05);
+    expect(zOffset + height / 2).toBeGreaterThan(2);
   });
 
   it("places the emboss cutter top at +depth", () => {

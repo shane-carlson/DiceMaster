@@ -26,29 +26,14 @@ function uniquePoly(points: { x: number; y: number }[]): [number, number][] {
   return ring;
 }
 
-function signedArea(ring: [number, number][]): number {
-  let area = 0;
-  for (let i = 0; i < ring.length; i++) {
-    const p = ring[i];
-    const q = ring[(i + 1) % ring.length];
-    area += p[0] * q[1] - q[0] * p[1];
-  }
-  return area / 2;
-}
-
 function contourPolygons(contours: GlyphShapeContours[]): [number, number][][] {
   const polys: [number, number][][] = [];
   for (const contour of contours) {
     const outer = uniquePoly(contour.outer);
-    if (outer.length >= 3) {
-      if (signedArea(outer) < 0) outer.reverse();
-      polys.push(outer);
-    }
+    if (outer.length >= 3) polys.push(outer);
     for (const holePts of contour.holes) {
       const hole = uniquePoly(holePts);
-      if (hole.length < 3) continue;
-      if (signedArea(hole) > 0) hole.reverse();
-      polys.push(hole);
+      if (hole.length >= 3) polys.push(hole);
     }
   }
   return polys;
@@ -60,15 +45,25 @@ function glyphCutter(wasm: ManifoldToplevel, glyph: PlacedGlyph, mode: "engrave"
   if (glyph.shapes.length > 0) {
     const polys = contourPolygons(glyph.shapes);
     if (polys.length === 0) return null;
-    const cs = new wasm.CrossSection(polys, "Positive");
-    if (cs.isEmpty()) {
+    // EvenOdd keeps counters (8, 0, A) and still fills glyphs whose outer/hole
+    // assignment is inverted (common with font Path.toShapes).
+    const cs = new wasm.CrossSection(polys, "EvenOdd");
+    if (cs.isEmpty() || Math.abs(cs.area()) < 0.05) {
       cs.delete();
       return null;
     }
     const solid = cs.extrude(cut.height, 0, 0, 1, true);
     cs.delete();
+    if (solid.isEmpty() || solid.status() !== "NoError" || solid.volume() <= 0) {
+      solid.delete();
+      return null;
+    }
     const placed = solid.transform(toMat4(matrix));
     solid.delete();
+    if (placed.isEmpty() || placed.status() !== "NoError" || placed.volume() <= 0) {
+      placed.delete();
+      return null;
+    }
     return placed;
   }
 
@@ -142,31 +137,26 @@ export async function carvePrintSolid(
 
     const total = Math.max(glyphs.length, 1);
     await onProgress?.(0, total);
-    const tools: Manifold[] = [];
     for (let i = 0; i < glyphs.length; i++) {
       try {
         const tool = glyphCutter(wasm, glyphs[i], mode);
-        if (tool && !tool.isEmpty()) {
-          forget(tool);
-          tools.push(tool);
-        } else {
-          tool?.delete();
+        if (!tool) {
+          await onProgress?.(i + 1, total);
+          continue;
         }
+        forget(tool);
+        const carved = mode === "emboss" ? body.add(tool) : body.subtract(tool);
+        if (carved.isEmpty() || carved.status() !== "NoError" || carved.volume() <= 0) {
+          carved.delete();
+          await onProgress?.(i + 1, total);
+          continue;
+        }
+        forget(carved);
+        body = carved;
       } catch {
         // Skip a glyph that cannot form a solid rather than shredding the die.
       }
       await onProgress?.(i + 1, total);
-    }
-
-    if (tools.length > 0) {
-      const cutter = tools.length === 1 ? tools[0] : wasm.Manifold.union(tools);
-      if (tools.length > 1) forget(cutter);
-      const carved = mode === "emboss" ? body.add(cutter) : body.subtract(cutter);
-      forget(carved);
-      if (carved.isEmpty() || carved.status() !== "NoError" || carved.volume() <= 0) {
-        throw new Error("Could not carve a solid STL mesh.");
-      }
-      body = carved;
     }
 
     return manifoldToGeometry(body);

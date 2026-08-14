@@ -16,7 +16,13 @@ export function resolveCarveDepth(
   return raw;
 }
 
-const CUTTER_OVERLAP = 0.2;
+/**
+ * How far an engrave cutter must stick *out* of the face. Manifold leaves a
+ * paper-thin skin over the well (slicer "slits") if this is only a fraction of
+ * a millimetre — the tool has to clearly pass through the surface.
+ */
+const ENGRAVE_THROUGH_MM = 3;
+const EMBOSS_OVERLAP = 0.2;
 
 /**
  * Centered cutter so CSG crosses the face and the cut floor sits at -depth (engrave)
@@ -26,10 +32,12 @@ export function cutterPlacement(
   depth: number,
   mode: EngraveMode,
 ): { height: number; zOffset: number } {
-  const overlap = Math.min(CUTTER_OVERLAP, Math.max(depth * 0.15, 0.12));
-  const height = depth + overlap;
   if (mode === "emboss") {
+    const overlap = Math.min(EMBOSS_OVERLAP, Math.max(depth * 0.15, 0.12));
+    const height = depth + overlap;
     return { height, zOffset: (depth - overlap) / 2 };
   }
+  const overlap = Math.max(ENGRAVE_THROUGH_MM, depth);
+  const height = depth + overlap;
   return { height, zOffset: (overlap - depth) / 2 };
 }

@@ -68,11 +68,12 @@ describe("stl print bake", () => {
     const build = await buildDie(die, font, [], 1, "print");
     const baked = await bakeEngraving(build, die.engraveMode);
     const mesh = new Mesh(baked);
-    let wells = 0;
+    const wellsByLabel = new Map<string, { u: number; v: number }[]>();
     for (const face of build.faces) {
       const n = face.normal.clone();
-      for (let u = -5; u <= 5; u += 1) {
-        for (let v = -5; v <= 5; v += 1) {
+      const hits: { u: number; v: number }[] = [];
+      for (let u = -6; u <= 6; u += 0.5) {
+        for (let v = -6; v <= 6; v += 0.5) {
           const origin = face.center
             .clone()
             .add(face.tangent.clone().multiplyScalar(u))
@@ -82,13 +83,23 @@ describe("stl print bake", () => {
             mesh,
             false,
           )[0];
-          if (hit && n.dot(hit.point.clone().sub(face.center)) < -0.2) wells++;
+          if (hit && n.dot(hit.point.clone().sub(face.center)) < -0.2) hits.push({ u, v });
         }
       }
+      wellsByLabel.set(face.label, hits);
     }
     expect(openEdgeCount(baked)).toBe(0);
     expect(baked.index).toBeTruthy();
     expect((baked.index?.count ?? 0) / 3).toBeGreaterThan(80);
-    expect(wells).toBeGreaterThan(4);
+    const spanned = [...wellsByLabel.values()].filter((hits) => hits.length > 8);
+    expect(spanned.length).toBeGreaterThanOrEqual(5);
+    const one = wellsByLabel.get("1") ?? [];
+    const two = wellsByLabel.get("2") ?? [];
+    const six = wellsByLabel.get("6") ?? [];
+    const spanV = (hits: { v: number }[]) =>
+      hits.length ? Math.max(...hits.map((h) => h.v)) - Math.min(...hits.map((h) => h.v)) : 0;
+    expect(spanV(one)).toBeGreaterThan(6);
+    expect(two.length).toBeGreaterThan(8);
+    expect(six.length).toBeGreaterThan(8);
   }, 20_000);
 });
