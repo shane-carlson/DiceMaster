@@ -8,6 +8,7 @@ import {
 import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, roundingReachScale, type DieFace } from "./faces";
 import { createDieGeometry, filletRadiusMm, roundConvexGeometry } from "./geometry";
+import { TOKEN_MARK_FILL } from "./token";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
 import { cutterPlacement, PREVIEW_INK_HEIGHT, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
@@ -87,7 +88,12 @@ async function placedFromGlyph(
   filletMm = 0,
 ): Promise<PlacedGlyph | null> {
   const depth = resolveCarveDepth(die, glyph.depth);
-  const fit = glyphFitSize(face, filletMm) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
+  const markFill =
+    die.type === "token" && (glyph.kind === "symbol" || glyph.kind === "logo")
+      ? TOKEN_MARK_FILL
+      : undefined;
+  const fit =
+    glyphFitSize(face, filletMm, markFill) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
   const inset = die.engraveMode !== "emboss";
   const cut = cutterPlacement(depth, die.engraveMode);
   const segments = quality === "print" ? 5 : 8;
@@ -183,7 +189,7 @@ export async function buildDie(
   globalScale: number,
   quality: "preview" | "print" = "preview",
 ): Promise<DieBuild> {
-  const sharp = createDieGeometry(die.type, die.sizeMm);
+  const sharp = createDieGeometry(die.type, die.sizeMm, die.tokenShape);
   const rawFaces = extractFaces(sharp, die.type);
   const faces = numberFaces(die.type, rawFaces, die.d10Style);
   const body = roundConvexGeometry(sharp, die.cornerRounding, die.sizeMm);

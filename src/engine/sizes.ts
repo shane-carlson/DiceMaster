@@ -1,4 +1,5 @@
 import type { DieType, SizeFormatId } from "./types";
+import { TOKEN_DIAMETER_MM } from "./token";
 
 /** Characteristic size in millimetres (longest bounding-box axis).
  *  D8 / D10 / D% are also this wide at the equator.
@@ -15,6 +16,7 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
     d00: 12,
     d12: 14,
     d20: 15,
+    token: TOKEN_DIAMETER_MM,
   },
   standard: {
     d2: 22,
@@ -27,6 +29,7 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
     d00: 16,
     d12: 18,
     d20: 20,
+    token: TOKEN_DIAMETER_MM,
   },
   chonk: {
     d2: 28,
@@ -39,6 +42,7 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
     d00: 22,
     d12: 26,
     d20: 30,
+    token: TOKEN_DIAMETER_MM,
   },
   giant: {
     d2: 38,
@@ -51,6 +55,7 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
     d00: 32,
     d12: 36,
     d20: 42,
+    token: TOKEN_DIAMETER_MM,
   },
 };
 

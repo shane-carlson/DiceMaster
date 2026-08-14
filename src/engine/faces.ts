@@ -34,7 +34,13 @@ function makeFrame(
   const n = normal.clone().normalize();
   let up: Vector3;
 
-  if (type === "d4teardrop" && vertices.length >= 3) {
+  if (type === "token") {
+    up = new Vector3(0, 0, -1);
+    if (Math.abs(n.dot(up)) > 0.92) {
+      up = new Vector3(1, 0, 0);
+    }
+    up.sub(n.clone().multiplyScalar(up.dot(n)));
+  } else if (type === "d4teardrop" && vertices.length >= 3) {
     // Long body faces: point the numeral toward the cap (away from the sharp tip).
     let lowest = vertices[0];
     for (const v of vertices) {
@@ -295,6 +301,14 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     const bodySet = new Set(bodySorted);
     const caps = faces.filter((f) => !bodySet.has(f));
     faces = [...bodySorted, ...caps];
+  }
+
+  if (type === "token" && faces.length > 2) {
+    const caps = [...faces]
+      .sort((a, b) => Math.abs(b.normal.y) - Math.abs(a.normal.y))
+      .slice(0, 2)
+      .sort((a, b) => b.center.y - a.center.y);
+    faces = caps;
   }
 
   faces.forEach((f, idx) => {
@@ -569,11 +583,18 @@ export function roundingReachScale(face: DieFace, filletMm = 0): number {
 }
 
 /** Max glyph AABB so the mark sits inside the face with a margin. */
-export function glyphFitSize(face: DieFace, filletMm = 0): number {
+export function glyphFitSize(face: DieFace, filletMm = 0, fillOverride?: number): number {
   const r = facePlanarInradius(face, filletMm);
   if (!Number.isFinite(r) || r <= 0) return 4;
   const n = face.vertices.length;
-  const fill = n <= 3 ? 0.56 : n === 4 ? 0.68 : 0.62;
+  const fill =
+    typeof fillOverride === "number"
+      ? fillOverride
+      : n <= 3
+        ? 0.56
+        : n === 4
+          ? 0.68
+          : 0.62;
   return 2 * r * fill;
 }
 

@@ -86,7 +86,7 @@ function poseForSelection(
   if (selectedFaceIndex === null) return dieViewPose(origin, die.sizeMm);
   let geom: BufferGeometry | undefined;
   try {
-    geom = createDieGeometry(die.type, die.sizeMm);
+    geom = createDieGeometry(die.type, die.sizeMm, die.tokenShape);
     const face = extractFaces(geom, die.type)[selectedFaceIndex];
     if (!face) return dieViewPose(origin, die.sizeMm);
     const rot = usesVertexNumerals(die.type)
@@ -234,9 +234,9 @@ function PlacedDie({
   const focusDieFace = useProjectStore((s) => s.focusDieFace);
   const { build } = useDieBuild(die, font, logos, scale);
   const fallback = useMemo(() => {
-    const sharp = createDieGeometry(die.type, die.sizeMm);
+    const sharp = createDieGeometry(die.type, die.sizeMm, die.tokenShape);
     return roundConvexGeometry(sharp, die.cornerRounding, die.sizeMm);
-  }, [die.type, die.sizeMm, die.cornerRounding]);
+  }, [die.type, die.sizeMm, die.tokenShape, die.cornerRounding]);
   const position = useMemo(
     () => dieWorldPosition(index, count, spacing),
     [index, count, spacing],

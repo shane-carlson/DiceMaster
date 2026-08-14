@@ -8,7 +8,30 @@ export type DieType =
   | "d10"
   | "d00"
   | "d12"
-  | "d20";
+  | "d20"
+  | "token";
+
+export const TOKEN_SHAPES = [
+  "coin",
+  "shield",
+  "hexagon",
+  "octagon",
+  "diamond",
+  "triangle",
+  "almond",
+] as const;
+
+export type TokenShape = (typeof TOKEN_SHAPES)[number];
+
+export const TOKEN_SHAPE_LABELS: Record<TokenShape, string> = {
+  coin: "Coin",
+  shield: "Shield",
+  hexagon: "Hexagon",
+  octagon: "Octagon",
+  diamond: "Diamond",
+  triangle: "Triangle",
+  almond: "Almond",
+};
 
 export type SizeFormatId = "mini" | "standard" | "chonk" | "giant";
 
@@ -53,6 +76,7 @@ export interface DieInstance {
   engraveMode: EngraveMode;
   d10Style: D10Style;
   numberStyle: NumberGlyphStyle;
+  tokenShape?: TokenShape;
   faces: FaceSettings[];
 }
 
@@ -86,6 +110,7 @@ export const DIE_FACE_COUNT: Record<DieType, number> = {
   d00: 10,
   d12: 12,
   d20: 20,
+  token: 2,
 };
 
 export const DIE_LABELS: Record<DieType, string> = {
@@ -99,6 +124,7 @@ export const DIE_LABELS: Record<DieType, string> = {
   d00: "D% Percentile",
   d12: "D12 Dodecahedron",
   d20: "D20 Icosahedron",
+  token: "Maker Token",
 };
 
 export const SIZE_FORMAT_LABELS: Record<SizeFormatId, string> = {
