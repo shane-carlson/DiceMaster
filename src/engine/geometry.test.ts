@@ -4,13 +4,16 @@ import opentype from "opentype.js";
 import { Vector3, Shape } from "three";
 import {
   extractFaces,
+  faceCircumradius,
   faceEdgeDistances,
   faceInradius,
+  facePlanarInradius,
   geometryFromFaces,
   glyphFitSize,
   polygonIncenter2,
+  roundingReachScale,
 } from "./faces";
-import { createDieGeometry, convexPenetration, roundConvexGeometry, uniqueVertices } from "./geometry";
+import { createDieGeometry, convexPenetration, filletRadiusMm, roundConvexGeometry, uniqueVertices } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
 import { faceMatrix, buildDie } from "./buildDie";
@@ -229,9 +232,17 @@ describe("corner rounding", () => {
     const die = createDie("d4", "standard", { cornerRounding: 0.18 });
     const build = await buildDie(die, font, [], 1, "preview");
     expect(build.glyphs.filter((g) => g.role === "primary")).toHaveLength(12);
+    const faces = build.faces;
     for (const glyph of build.glyphs) {
       const origin = new Vector3().setFromMatrixPosition(glyph.matrix);
       expect(convexPenetration(build.body, origin)).toBeLessThan(0.12);
+      const face = faces[glyph.faceIndex];
+      const filletMm = filletRadiusMm(die.sizeMm, die.cornerRounding);
+      const offset = Math.hypot(
+        origin.clone().sub(face.center).dot(face.tangent),
+        origin.clone().sub(face.center).dot(face.bitangent),
+      );
+      expect(offset).toBeLessThan(faceCircumradius(face) * roundingReachScale(face, filletMm) + 0.05);
     }
   });
 });
@@ -298,6 +309,15 @@ describe("glyph fit", () => {
     const octFit = Math.max(...oct.map(glyphFitSize));
     expect(cubeFit).toBeGreaterThan(octFit);
     expect(Math.min(...cube.map(faceInradius))).toBeGreaterThan(7);
+  });
+
+  it("shrinks fit as corner rounding eats the flat face", () => {
+    const face = extractFaces(createDieGeometry("d6", 16), "d6")[0];
+    const sharp = glyphFitSize(face, 0);
+    const rounded = glyphFitSize(face, 2);
+    expect(rounded).toBeLessThan(sharp);
+    expect(facePlanarInradius(face, 2)).toBeCloseTo(faceInradius(face) - 2, 5);
+    expect(roundingReachScale(face, 2)).toBeLessThan(1);
   });
 
   it("points every face normal outward", () => {

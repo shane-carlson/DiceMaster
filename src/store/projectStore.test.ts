@@ -74,7 +74,7 @@ describe("face emblems", () => {
     useProjectStore.getState().setGlobalFontScale(1.3);
     useProjectStore.getState().resetDieDefaults(die.id);
     const next = useProjectStore.getState().project.dice[0];
-    expect(next.cornerRounding).toBe(0.18);
+    expect(next.cornerRounding).toBe(0);
     expect(next.fontScale).toBe(1);
     expect(useProjectStore.getState().project.globalFontScale).toBe(1);
   });

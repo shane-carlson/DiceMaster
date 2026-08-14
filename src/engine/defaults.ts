@@ -41,7 +41,7 @@ export const DEFAULT_EMBLEM_SCALE = 0.42;
 export const DEFAULT_EMBLEM_OFFSET_Y = 0.58;
 export const DEFAULT_FONT_SCALE = 1;
 export const DEFAULT_GLOBAL_FONT_SCALE = 1;
-export const DEFAULT_CORNER_ROUNDING = 0.18;
+export const DEFAULT_CORNER_ROUNDING = 0;
 
 export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
   return {

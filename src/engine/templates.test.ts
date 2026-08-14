@@ -13,6 +13,7 @@ describe("templates", () => {
     const dice = diceFromTemplate(t!);
     expect(dice).toHaveLength(7);
     expect(dice.map((d) => d.type)).toEqual(["d4", "d6", "d8", "d10", "d00", "d12", "d20"]);
+    expect(dice.every((d) => d.cornerRounding === 0)).toBe(true);
   });
 
   it("every template builds the advertised face counts", () => {

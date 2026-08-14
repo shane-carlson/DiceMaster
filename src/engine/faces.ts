@@ -549,9 +549,28 @@ export function faceInradius(face: DieFace): number {
   return (2 * face.area) / peri;
 }
 
-/** Max glyph AABB so the mark sits inside the face with a margin. */
-export function glyphFitSize(face: DieFace): number {
+/**
+ * Inradius of the remaining flat face after an edge fillet of `filletMm`.
+ * A cube face insets by ~r; this is a conservative planar-circle bound.
+ */
+export function facePlanarInradius(face: DieFace, filletMm = 0): number {
   const r = faceInradius(face);
+  if (!(r > 0)) return 0.5;
+  const cut = Math.max(0, filletMm);
+  if (cut < 1e-6) return r;
+  return Math.max(r - cut, r * 0.14);
+}
+
+/** Scale placements toward the face center so they stay on the remaining flat. */
+export function roundingReachScale(face: DieFace, filletMm = 0): number {
+  const r = faceInradius(face);
+  if (!(r > 0)) return 1;
+  return facePlanarInradius(face, filletMm) / r;
+}
+
+/** Max glyph AABB so the mark sits inside the face with a margin. */
+export function glyphFitSize(face: DieFace, filletMm = 0): number {
+  const r = facePlanarInradius(face, filletMm);
   if (!Number.isFinite(r) || r <= 0) return 4;
   const n = face.vertices.length;
   const fill = n <= 3 ? 0.56 : n === 4 ? 0.68 : 0.62;

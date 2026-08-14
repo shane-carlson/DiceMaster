@@ -6,8 +6,8 @@ import {
   Mesh,
 } from "three";
 import type { Font } from "opentype.js";
-import { extractFaces, glyphFitSize, type DieFace } from "./faces";
-import { createDieGeometry, roundConvexGeometry } from "./geometry";
+import { extractFaces, glyphFitSize, roundingReachScale, type DieFace } from "./faces";
+import { createDieGeometry, filletRadiusMm, roundConvexGeometry } from "./geometry";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
 import { cutterPlacement, PREVIEW_INK_HEIGHT, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
@@ -84,9 +84,10 @@ async function placedFromGlyph(
   role: PlacedGlyph["role"],
   placement?: { ox: number; oy: number; rotation: number; fitMul?: number },
   quality: "preview" | "print" = "preview",
+  filletMm = 0,
 ): Promise<PlacedGlyph | null> {
   const depth = resolveCarveDepth(die, glyph.depth);
-  const fit = glyphFitSize(face) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
+  const fit = glyphFitSize(face, filletMm) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
   const inset = die.engraveMode !== "emboss";
   const cut = cutterPlacement(depth, die.engraveMode);
   const segments = quality === "print" ? 5 : 8;
@@ -135,10 +136,10 @@ async function placedFromGlyph(
   };
 }
 
-function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
+function pipGlyphs(face: NumberedFace, die: DieInstance, filletMm = 0): PlacedGlyph[] {
   const value = Number(face.label);
   if (!Number.isFinite(value) || value < 1 || value > 6) return [];
-  const fit = glyphFitSize(face);
+  const fit = glyphFitSize(face, filletMm);
   const span = fit * 0.28;
   const radius = fit * 0.09 * die.fontScale;
   const depth = resolveCarveDepth(die);
@@ -187,6 +188,7 @@ export async function buildDie(
   const faces = numberFaces(die.type, rawFaces, die.d10Style);
   const body = roundConvexGeometry(sharp, die.cornerRounding, die.sizeMm);
   const rounded = body !== sharp;
+  const filletMm = filletRadiusMm(die.sizeMm, die.cornerRounding);
   const glyphs: PlacedGlyph[] = [];
   const vertexLabels = usesVertexNumerals(die.type)
     ? tetraOppositeVertexLabels(faces)
@@ -202,9 +204,10 @@ export async function buildDie(
       settings.primary.kind === "number";
 
     if (usePips) {
-      glyphs.push(...pipGlyphs(face, die));
+      glyphs.push(...pipGlyphs(face, die, filletMm));
     } else if (vertexLabels && settings.primary.kind === "number") {
-      for (const corner of d4CornerPlacements(face, vertexLabels)) {
+      const reach = 0.6 * roundingReachScale(face, filletMm);
+      for (const corner of d4CornerPlacements(face, vertexLabels, reach)) {
         const glyph = {
           ...settings.primary,
           text: corner.label,
@@ -220,6 +223,7 @@ export async function buildDie(
           "primary",
           { ox: corner.ox, oy: corner.oy, rotation: corner.rotation, fitMul: 0.42 },
           quality,
+          filletMm,
         );
         if (placed) glyphs.push(placed);
       }
@@ -234,6 +238,7 @@ export async function buildDie(
         "primary",
         undefined,
         quality,
+        filletMm,
       );
       if (primary) glyphs.push(primary);
     }
@@ -249,6 +254,7 @@ export async function buildDie(
         "emblem",
         undefined,
         quality,
+        filletMm,
       );
       if (emblem) glyphs.push(emblem);
     }
