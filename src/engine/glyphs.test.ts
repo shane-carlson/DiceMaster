@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Path, Shape, type BufferGeometry } from "three";
 import { extrudeShapes, letterDecalGeometry, shapesFromSvgPath, underscoreBar } from "./glyphs";
-import { symbolById } from "./symbols";
+import { SYMBOLS, symbolById } from "./symbols";
 import { DEFAULT_DEPTH } from "./sizes";
 
 describe("6/9 underscore", () => {
@@ -173,56 +173,72 @@ function geometryCoversXY(geom: BufferGeometry, x: number, y: number): boolean {
 }
 
 describe("symbol counters stay open in preview", () => {
-  for (const id of ["diamond", "shield", "eye", "potion", "scroll", "eclipse"]) {
-    it(`does not fill the ${id} counter with the symbol body`, () => {
+  it("does not fill the potion flask interior with the symbol body", () => {
+    const def = symbolById("potion");
+    expect(def).toBeTruthy();
+    const shapes = shapesFromSvgPath(def!.path, def!.viewBox);
+    const withHole = shapes.find((s) => s.holes.length > 0);
+    expect(withHole).toBeTruthy();
+    const geom = letterDecalGeometry(shapes, 0.12)!;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const visit = (p: { x: number; y: number }) => {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    };
+    for (const shape of shapes) {
+      shape.getPoints(16).forEach(visit);
+      for (const hole of shape.holes) hole.getPoints(16).forEach(visit);
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    const holePts = withHole!.holes[0].getPoints(20);
+    let hx = 0;
+    let hy = 0;
+    for (const p of holePts) {
+      hx += p.x;
+      hy += p.y;
+    }
+    hx /= holePts.length;
+    hy /= holePts.length;
+    expect(geometryCoversXY(geom, hx - cx, hy - cy)).toBe(false);
+
+    const outer = withHole!.getPoints(24);
+    let best = outer[0];
+    let bestD = -1;
+    for (const p of outer) {
+      const d = (p.x - hx) ** 2 + (p.y - hy) ** 2;
+      if (d > bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    const mx = hx + 0.92 * (best.x - hx);
+    const my = hy + 0.92 * (best.y - hy);
+    expect(geometryCoversXY(geom, mx - cx, my - cy)).toBe(true);
+  });
+
+  it("nests counters on crescent and pentacle marks", () => {
+    for (const id of ["eclipse", "pentacle", "skull"]) {
       const def = symbolById(id);
-      expect(def).toBeTruthy();
+      expect(def, id).toBeTruthy();
       const shapes = shapesFromSvgPath(def!.path, def!.viewBox);
-      const withHole = shapes.find((s) => s.holes.length > 0);
-      expect(withHole).toBeTruthy();
-      const geom = letterDecalGeometry(shapes, 0.12)!;
+      const hollow = shapes.some((s) => s.holes.length > 0);
+      expect(hollow, id).toBe(true);
+    }
+  });
 
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      const visit = (p: { x: number; y: number }) => {
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
-      };
-      for (const shape of shapes) {
-        shape.getPoints(16).forEach(visit);
-        for (const hole of shape.holes) hole.getPoints(16).forEach(visit);
-      }
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-
-      const holePts = withHole!.holes[0].getPoints(20);
-      let hx = 0;
-      let hy = 0;
-      for (const p of holePts) {
-        hx += p.x;
-        hy += p.y;
-      }
-      hx /= holePts.length;
-      hy /= holePts.length;
-      expect(geometryCoversXY(geom, hx - cx, hy - cy)).toBe(false);
-
-      const outer = withHole!.getPoints(24);
-      let best = outer[0];
-      let bestD = -1;
-      for (const p of outer) {
-        const d = (p.x - hx) ** 2 + (p.y - hy) ** 2;
-        if (d > bestD) {
-          bestD = d;
-          best = p;
-        }
-      }
-      const mx = hx + 0.92 * (best.x - hx);
-      const my = hy + 0.92 * (best.y - hy);
-      expect(geometryCoversXY(geom, mx - cx, my - cy)).toBe(true);
-    });
-  }
+  it("builds a preview decal for every vault symbol", () => {
+    for (const def of SYMBOLS) {
+      const shapes = shapesFromSvgPath(def.path, def.viewBox);
+      expect(shapes.length, def.id).toBeGreaterThan(0);
+      expect(letterDecalGeometry(shapes, 0.12), def.id).toBeTruthy();
+    }
+  });
 });

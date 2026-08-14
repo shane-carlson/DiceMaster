@@ -3,7 +3,7 @@ import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/f
 import { uid } from "../../engine/id";
 import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, GlyphSettings, SizeFormatId } from "../../engine/types";
-import { symbolsByCategory } from "../../engine/symbols";
+import { symbolsByCategory, SYMBOL_CREDIT } from "../../engine/symbols";
 import { useProjectStore } from "../../store/projectStore";
 
 const ADDABLE: { type: DieType; label: string }[] = [
@@ -247,6 +247,13 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       <p className="help" style={{ marginTop: 8 }}>
         Add beside number keeps the inscription. Size and Move sliders are in the Inspector
         (right panel, or the Inspector tab) and in Face editor after you click a face.
+      </p>
+      <p className="help">
+        {SYMBOL_CREDIT.replace("https://game-icons.net", "").trim()}{" "}
+        <a href="https://game-icons.net" target="_blank" rel="noreferrer">
+          game-icons.net
+        </a>{" "}
+        (CC BY 3.0).
       </p>
     </aside>
   );

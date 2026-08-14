@@ -131,7 +131,9 @@ export function Home() {
 
       <footer className="home-foot">
         DiceMaster is a browser forge for tabletop dice masters. Bundled fonts are SIL Open Font
-        License. Craft responsibly; may your twenties be natural.
+        License. Vault symbols are by Lorc, Delapouite and contributors at{" "}
+        <a href="https://game-icons.net">game-icons.net</a> (CC BY 3.0). Craft responsibly; may
+        your twenties be natural.
       </footer>
     </div>
   );

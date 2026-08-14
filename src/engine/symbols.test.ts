@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SYMBOL_GROUPS, SYMBOLS, symbolById, symbolsByCategory } from "./symbols";
+import { SYMBOL_CREDIT, SYMBOL_GROUPS, SYMBOLS, symbolById, symbolsByCategory } from "./symbols";
 
 describe("symbol library", () => {
   it("has unique ids", () => {
@@ -25,5 +25,10 @@ describe("symbol library", () => {
     expect(grouped.map((g) => g.category)).toEqual(SYMBOL_GROUPS.map((g) => g.label));
     expect(grouped.reduce((n, g) => n + g.symbols.length, 0)).toBe(SYMBOLS.length);
     expect(SYMBOLS.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it("credits Game-icons.net", () => {
+    expect(SYMBOL_CREDIT).toMatch(/game-icons\.net/i);
+    expect(SYMBOL_CREDIT).toMatch(/Lorc/);
   });
 });

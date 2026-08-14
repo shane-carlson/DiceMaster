@@ -319,6 +319,10 @@ img {
   border-top: 1px solid var(--line);
 }
 
+.home-foot a {
+  color: var(--gold-2);
+}
+
 /* ---------- Workshop ---------- */
 
 .workshop {
@@ -735,6 +739,10 @@ img {
   color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.45;
+}
+
+.help a {
+  color: var(--gold-2);
 }
 
 .empty {

@@ -39,3 +39,7 @@ Bundled typefaces are licensed under the SIL Open Font License (37 faces):
 - **Fantasy & historic** — Cinzel, Cinzel Decorative, Uncial Antiqua, Medieval Sharp, Pirata One, Metamorphous
 - **Sci-fi** — Orbitron, Audiowide, Michroma, Oxanium, Chakra Petch, Electrolize, Zen Dots, Turret Road, Quantico, Iceberg, Aldrich, Bruno Ace, Geo, Share Tech Mono
 - **Arcade & gamer** — Black Ops One, Bungee, Russo One, Press Start 2P, Silkscreen, Goldman, Bangers, Wallpoet, Titan One, Bowlby One SC, Righteous, Changa One
+
+## Symbols
+
+The vault uses filled silhouettes from [Game-icons.net](https://game-icons.net) (Lorc, Delapouite, and contributors), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Attribution is shown in the workshop and on the homepage. License text: `src/assets/licenses/game-icons.txt`.
