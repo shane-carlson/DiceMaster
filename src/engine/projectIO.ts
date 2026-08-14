@@ -1,5 +1,5 @@
 import type { DieInstance, Project } from "./types";
-import { ensureCarveDepth, ensureCornerRounding, ensureFaceCount, ensureTokenShape } from "./defaults";
+import { ensureCarveDepth, ensureCornerRounding, ensureDigitAnchor, ensureFaceCount, ensureTokenShape } from "./defaults";
 import { defaultCarveDepth } from "./carve";
 
 const STORAGE_KEY = "dicemaster.project.v1";
@@ -9,7 +9,9 @@ export function serializeProject(project: Project): string {
 }
 
 function normalizeDie(die: DieInstance): DieInstance {
-  return ensureCarveDepth(ensureFaceCount(ensureTokenShape(ensureCornerRounding(die))));
+  return ensureDigitAnchor(
+    ensureCarveDepth(ensureFaceCount(ensureTokenShape(ensureCornerRounding(die)))),
+  );
 }
 
 export function normalizeProject(project: Project): Project {

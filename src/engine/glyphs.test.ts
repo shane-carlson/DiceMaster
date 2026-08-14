@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Path, Shape, type BufferGeometry } from "three";
-import { extrudeShapes, letterDecalGeometry, shapesFromSvgPath, underscoreBar } from "./glyphs";
+import { extrudeShapes, letterDecalGeometry, shapesFromSvgPath, digitAnchorArrow, digitAnchorDot, digitAnchorShape, underscoreBar } from "./glyphs";
 import { SYMBOLS, symbolById } from "./symbols";
 import { DEFAULT_DEPTH } from "./sizes";
 
-describe("6/9 underscore", () => {
+describe("6/9 orientation marks", () => {
   const digit = { minX: -4, minY: -6, maxX: 4, maxY: 6 };
 
-  it("tucks the bar just under the digit", () => {
+  it("tucks the underline just under the digit", () => {
     const bar = underscoreBar(digit);
     const h = digit.maxY - digit.minY;
     const w = digit.maxX - digit.minX;
@@ -17,12 +17,41 @@ describe("6/9 underscore", () => {
     expect(digit.minY - bar.minY).toBeLessThan(h * 0.2);
   });
 
-  it("keeps the combined mark only slightly taller than the digit", () => {
+  it("keeps the combined underline mark only slightly taller than the digit", () => {
     const bar = underscoreBar(digit);
     const digitH = digit.maxY - digit.minY;
     const combined = digit.maxY - bar.minY;
     expect(combined).toBeLessThan(digitH * 1.15);
     expect(combined).toBeGreaterThan(digitH);
+  });
+
+  it("tucks a disc just under the digit", () => {
+    const dot = digitAnchorDot(digit);
+    const h = digit.maxY - digit.minY;
+    expect(dot.cy + dot.r).toBeLessThan(digit.minY);
+    expect(digit.minY - (dot.cy + dot.r)).toBeLessThan(h * 0.1);
+    expect(digit.minY - (dot.cy - dot.r)).toBeLessThan(h * 0.25);
+    expect(dot.cx).toBeCloseTo((digit.minX + digit.maxX) / 2);
+  });
+
+  it("points the arrow up at the digit", () => {
+    const arrow = digitAnchorArrow(digit);
+    const pts = arrow.getPoints(3);
+    const maxY = Math.max(...pts.map((p) => p.y));
+    const minY = Math.min(...pts.map((p) => p.y));
+    const h = digit.maxY - digit.minY;
+    expect(maxY).toBeLessThan(digit.minY);
+    expect(digit.minY - maxY).toBeLessThan(h * 0.1);
+    expect(digit.minY - minY).toBeLessThan(h * 0.25);
+    const tips = pts.filter((p) => Math.abs(p.y - maxY) < 1e-6);
+    expect(tips.length).toBeGreaterThan(0);
+    for (const tip of tips) {
+      expect(tip.x).toBeCloseTo((digit.minX + digit.maxX) / 2);
+    }
+  });
+
+  it("does not add a mark when the anchor is none", () => {
+    expect(digitAnchorShape(digit, "none")).toBeNull();
   });
 });
 

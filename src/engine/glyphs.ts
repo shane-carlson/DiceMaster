@@ -12,7 +12,8 @@ import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import type { Font } from "opentype.js";
 import { symbolById } from "./symbols";
 import { parseSvgPath } from "./svgPath";
-import type { GlyphSettings, LogoAsset } from "./types";
+import type { DigitAnchor, GlyphSettings, LogoAsset } from "./types";
+import { needsDigitAnchor } from "./types";
 
 export function shapesFromFont(font: Font, text: string, size: number): Shape[] {
   if (!text) return [];
@@ -198,6 +199,49 @@ export function underscoreBar(digit: Rect2): Rect2 {
     maxY: top,
     minY: top - barH,
   };
+}
+
+/** Disc under a 6/9, same gap as the underline. */
+export function digitAnchorDot(digit: Rect2): { cx: number; cy: number; r: number } {
+  const h = Math.max(digit.maxY - digit.minY, 1e-6);
+  const cx = (digit.minX + digit.maxX) / 2;
+  const r = h * 0.075;
+  const gap = h * 0.05;
+  return { cx, cy: digit.minY - gap - r, r };
+}
+
+/** Triangle pointing up at the digit (this-way-is-up). */
+export function digitAnchorArrow(digit: Rect2): Shape {
+  const w = Math.max(digit.maxX - digit.minX, 1e-6);
+  const h = Math.max(digit.maxY - digit.minY, 1e-6);
+  const cx = (digit.minX + digit.maxX) / 2;
+  const gap = h * 0.05;
+  const tipY = digit.minY - gap;
+  const height = h * 0.14;
+  const halfW = w * 0.2;
+  const baseY = tipY - height;
+  const s = new Shape();
+  s.moveTo(cx, tipY);
+  s.lineTo(cx + halfW, baseY);
+  s.lineTo(cx - halfW, baseY);
+  s.closePath();
+  return s;
+}
+
+export function digitAnchorShape(digit: Rect2, mark: DigitAnchor): Shape | null {
+  if (mark === "underline") return rectShape(underscoreBar(digit));
+  if (mark === "dot") {
+    const d = digitAnchorDot(digit);
+    return circleShape(d.cx, d.cy, d.r);
+  }
+  if (mark === "arrow") return digitAnchorArrow(digit);
+  return null;
+}
+
+function circleShape(cx: number, cy: number, r: number): Shape {
+  const s = new Shape();
+  s.absarc(cx, cy, r, 0, Math.PI * 2, false);
+  return s;
 }
 
 function rectShape(r: Rect2): Shape {
@@ -693,6 +737,7 @@ export async function buildGlyphGeometry(
   align: GlyphZAlign = "center",
   openFace = false,
   curveSegments = 8,
+  digitAnchor: DigitAnchor = "none",
 ): Promise<GlyphBuild | null> {
   if (glyph.kind === "blank") return null;
   let shapes: Shape[] = [];
@@ -728,9 +773,10 @@ export async function buildGlyphGeometry(
   shapes = shapes.filter((_, i) => extents[i] < median * 8 && extents[i] > median * 0.01);
   if (shapes.length === 0) return null;
 
-  if (glyph.underscore) {
+  if (needsDigitAnchor(glyph.text)) {
     const digit = shapesBBox(shapes);
-    if (digit) shapes.push(rectShape(underscoreBar(digit)));
+    const mark = digit ? digitAnchorShape(digit, digitAnchor) : null;
+    if (mark) shapes.push(mark);
   }
 
   const bb = shapesBBox(shapes);

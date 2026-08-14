@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { DIE_COLORS, DIE_LABELS, TOKEN_SHAPES, TOKEN_SHAPE_LABELS, type FaceKind, type SizeFormatId, type TokenShape } from "../../engine/types";
+import { DIE_COLORS, DIE_LABELS, DIGIT_ANCHORS, DIGIT_ANCHOR_LABELS, TOKEN_SHAPES, TOKEN_SHAPE_LABELS, type DigitAnchor, type FaceKind, type SizeFormatId, type TokenShape } from "../../engine/types";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
 import {
   DEFAULT_CORNER_ROUNDING,
@@ -164,19 +164,6 @@ export function InspectorPanel() {
             sizeMax={glyphSizeSliderMax(die.type, face.primary.kind, "primary")}
             onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "primary", patch)}
           />
-          <div className="field">
-            <label>
-              <input
-                type="checkbox"
-                checked={face.primary.underscore}
-                onChange={(e) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { underscore: e.target.checked })
-                }
-              />{" "}
-              Underscore (6 / 9)
-              <InfoTip text="Adds a bar under 6 and 9 so they stay readable after a roll." />
-            </label>
-          </div>
           <button className="btn btn-small" onClick={() => state.copyFaceToAll(die.id, faceNo)}>
             Copy placement to every face
           </button>
@@ -447,6 +434,22 @@ export function InspectorPanel() {
           </div>
         </HintedField>
       )}
+      <HintedField
+        label="6 / 9 mark"
+        hint="Orientation mark under 6 and 9 so those digits stay readable after a roll. Applies to every 6 and 9 on this die, including tetrahedron vertex labels."
+      >
+        <div className="chip-row">
+          {DIGIT_ANCHORS.map((mark) => (
+            <button
+              key={mark}
+              className={`chip ${die.digitAnchor === mark ? "active" : ""}`}
+              onClick={() => state.updateDie(die.id, { digitAnchor: mark as DigitAnchor })}
+            >
+              {DIGIT_ANCHOR_LABELS[mark]}
+            </button>
+          ))}
+        </div>
+      </HintedField>
       <div className="field">
         <label>
           <input

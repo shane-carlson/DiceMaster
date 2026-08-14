@@ -70,12 +70,17 @@ describe("face emblems", () => {
 
   it("resets inspector sliders and set-wide glyph scale", () => {
     const die = loadDie();
-    useProjectStore.getState().updateDie(die.id, { cornerRounding: 0.6, fontScale: 1.5 });
+    useProjectStore.getState().updateDie(die.id, {
+      cornerRounding: 0.6,
+      fontScale: 1.5,
+      digitAnchor: "dot",
+    });
     useProjectStore.getState().setGlobalFontScale(1.3);
     useProjectStore.getState().resetDieDefaults(die.id);
     const next = useProjectStore.getState().project.dice[0];
     expect(next.cornerRounding).toBe(0);
     expect(next.fontScale).toBe(1);
+    expect(next.digitAnchor).toBe("underline");
     expect(useProjectStore.getState().project.globalFontScale).toBe(1);
   });
 });

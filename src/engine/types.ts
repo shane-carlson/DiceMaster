@@ -43,6 +43,27 @@ export type D10Style = "0-9" | "1-10";
 
 export type NumberGlyphStyle = "numerals" | "pips";
 
+/** Mark under 6 and 9 so those digits stay readable after a roll. */
+export const DIGIT_ANCHORS = ["none", "underline", "dot", "arrow"] as const;
+export type DigitAnchor = (typeof DIGIT_ANCHORS)[number];
+
+export const DIGIT_ANCHOR_LABELS: Record<DigitAnchor, string> = {
+  none: "None",
+  underline: "Underline",
+  dot: "Dot",
+  arrow: "Arrow",
+};
+
+export function isDigitAnchor(value: unknown): value is DigitAnchor {
+  return DIGIT_ANCHORS.includes(value as DigitAnchor);
+}
+
+/** True when a carved numeral is rotationally ambiguous without a mark. */
+export function needsDigitAnchor(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed === "6" || trimmed === "9";
+}
+
 export interface GlyphSettings {
   kind: FaceKind;
   text: string;
@@ -76,6 +97,7 @@ export interface DieInstance {
   engraveMode: EngraveMode;
   d10Style: D10Style;
   numberStyle: NumberGlyphStyle;
+  digitAnchor: DigitAnchor;
   tokenShape?: TokenShape;
   faces: FaceSettings[];
 }
