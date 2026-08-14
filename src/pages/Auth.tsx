@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Brand } from "../components/layout/Brand";
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/authStore";
+import { InfoTip } from "../components/ui/InfoTip";
 
 export function Login() {
   return (
@@ -91,7 +92,10 @@ function AuthScreen({
         <form className="auth-form" onSubmit={(e) => void submit(e)}>
           {showName && (
             <label className="field">
-              <span>Display name</span>
+              <span>
+                Display name
+                <InfoTip text="How you appear in the workshop header and on your vault." />
+              </span>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -101,7 +105,10 @@ function AuthScreen({
             </label>
           )}
           <label className="field">
-            <span>Email</span>
+            <span>
+              Email
+              <InfoTip text="The address you use to sign in to your DiceMaster vault." />
+            </span>
             <input
               type="email"
               value={email}
@@ -111,7 +118,16 @@ function AuthScreen({
             />
           </label>
           <label className="field">
-            <span>Password</span>
+            <span>
+              Password
+              <InfoTip
+                text={
+                  showName
+                    ? "At least 8 characters. You will need this each time you return to the forge."
+                    : "The password for this vault account."
+                }
+              />
+            </span>
             <input
               type="password"
               value={password}

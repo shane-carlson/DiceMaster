@@ -8,6 +8,7 @@ import { BUILTIN_FONTS, FONT_GROUPS } from "../engine/fonts";
 import { SYMBOL_GROUPS, SYMBOLS } from "../engine/symbols";
 import { useAuthStore } from "../store/authStore";
 import { useCatalogStore } from "../store/catalogStore";
+import { InfoTip } from "../components/ui/InfoTip";
 
 type Tab = "users" | "banners" | "fonts" | "symbols";
 
@@ -127,19 +128,31 @@ function UsersTab({ onError }: { onError: (msg: string | null) => void }) {
       <h2>Create account</h2>
       <form className="auth-form" onSubmit={(e) => void create(e)}>
         <label className="field">
-          <span>Display name</span>
+          <span>
+            Display name
+            <InfoTip text="Shown in the workshop header for this account." />
+          </span>
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
         </label>
         <label className="field">
-          <span>Email</span>
+          <span>
+            Email
+            <InfoTip text="Sign-in address for the new account." />
+          </span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
         <label className="field">
-          <span>Password</span>
+          <span>
+            Password
+            <InfoTip text="Temporary password. At least 8 characters. They can change it later." />
+          </span>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
         </label>
         <label className="field">
-          <span>Role</span>
+          <span>
+            Role
+            <InfoTip text="Users keep a private vault. Admins can manage accounts, banners, and the shared library." />
+          </span>
           <select value={role} onChange={(e) => setRole(e.target.value as "user" | "admin")}>
             <option value="user">User</option>
             <option value="admin">Admin</option>
@@ -238,11 +251,17 @@ function BannersTab({ onError }: { onError: (msg: string | null) => void }) {
       <p className="help">Shown on every page until dismissed. All visitors see active banners.</p>
       <form className="auth-form" onSubmit={(e) => void create(e)}>
         <label className="field">
-          <span>Message</span>
+          <span>
+            Message
+            <InfoTip text="Banner text shown at the top of every page. 280 characters max." />
+          </span>
           <input value={message} onChange={(e) => setMessage(e.target.value)} maxLength={280} required />
         </label>
         <label className="field">
-          <span>Tone</span>
+          <span>
+            Tone
+            <InfoTip text="Gold is a highlight, info is neutral, alert is a warning." />
+          </span>
           <select value={tone} onChange={(e) => setTone(e.target.value as AnnouncementTone)}>
             <option value="gold">Gold</option>
             <option value="info">Info</option>
@@ -342,15 +361,24 @@ function FontsTab({ onError }: { onError: (msg: string | null) => void }) {
         }}
       >
         <label className="field">
-          <span>Name</span>
+          <span>
+            Name
+            <InfoTip text="Picker label for this typeface. Leave blank to use the file name." />
+          </span>
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="field">
-          <span>Mood</span>
+          <span>
+            Mood
+            <InfoTip text="Short note shown under the font picker, e.g. “bold numerals”." />
+          </span>
           <input value={mood} onChange={(e) => setMood(e.target.value)} />
         </label>
         <label className="field">
-          <span>Group</span>
+          <span>
+            Group
+            <InfoTip text="Which picker section this face appears in." />
+          </span>
           <select value={group} onChange={(e) => setGroup(e.target.value as typeof group)}>
             {FONT_GROUPS.map((g) => (
               <option key={g.id} value={g.id}>
@@ -456,11 +484,17 @@ function SymbolsTab({ onError }: { onError: (msg: string | null) => void }) {
       <p className="help">Paste an SVG path (`d` attribute). Shown in the vault for every user.</p>
       <form className="auth-form" onSubmit={(e) => void create(e)}>
         <label className="field">
-          <span>Name</span>
+          <span>
+            Name
+            <InfoTip text="Label shown in the symbol vault." />
+          </span>
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="field">
-          <span>Category</span>
+          <span>
+            Category
+            <InfoTip text="Which vault section this mark appears in." />
+          </span>
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             {SYMBOL_GROUPS.map((g) => (
               <option key={g.id} value={g.label}>
@@ -470,7 +504,10 @@ function SymbolsTab({ onError }: { onError: (msg: string | null) => void }) {
           </select>
         </label>
         <label className="field">
-          <span>SVG path</span>
+          <span>
+            SVG path
+            <InfoTip text="The d attribute of an SVG path. Use a filled silhouette on a 512 viewBox when you can." />
+          </span>
           <input value={path} onChange={(e) => setPath(e.target.value)} required />
         </label>
         <button className="btn btn-gold" type="submit">

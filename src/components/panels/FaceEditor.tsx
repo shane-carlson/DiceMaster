@@ -8,6 +8,7 @@ import { DEFAULT_EMBLEM_SCALE, DEFAULT_GLOBAL_FONT_SCALE, makeEmblem } from "../
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
+import { HintedField } from "../ui/InfoTip";
 import { useCatalogStore } from "../../store/catalogStore";
 import { useProjectStore } from "../../store/projectStore";
 
@@ -151,8 +152,10 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
       </div>
 
       <div className="face-editor-fonts">
-        <label>
-          Font
+        <HintedField
+          label="Font"
+          hint="Typeface used for numbers and text on every die in this set."
+        >
           <select value={project.fontId} onChange={(e) => setFontId(e.target.value)}>
             {fontsByGroup().map((group) => (
               <optgroup key={group.id} label={group.label}>
@@ -167,9 +170,10 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
               <option value="custom">{project.customFontName ?? "Custom TTF"}</option>
             )}
           </select>
-        </label>
+        </HintedField>
         <PercentSlider
           label="Size"
+          hint="Set-wide type size as a percent from the default. 0% is the default. Applies to every die."
           value={project.globalFontScale}
           defaultValue={DEFAULT_GLOBAL_FONT_SCALE}
           min={0.6}
@@ -220,15 +224,17 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
             <>
               <p className="help">Symbol or logo beside the number</p>
               {selectedFace.emblem.kind === "symbol" && (
-                <div className="field">
-                  <label>Symbol</label>
+                <HintedField
+                  label="Symbol"
+                  hint="Vault mark that sits beside the number on this face."
+                >
                   <SymbolSelect
                     value={selectedFace.emblem.symbolId ?? "star"}
                     onChange={(id) =>
                       updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", { symbolId: id })
                     }
                   />
-                </div>
+                </HintedField>
               )}
               <GlyphPlace
                 glyph={selectedFace.emblem}

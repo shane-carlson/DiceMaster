@@ -11,6 +11,7 @@ import { defaultBumperSize } from "../../engine/sizes";
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider, Slider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
+import { HintedField, InfoTip } from "../ui/InfoTip";
 
 const KINDS: { id: FaceKind; label: string }[] = [
   { id: "number", label: "Number" },
@@ -95,8 +96,10 @@ export function InspectorPanel() {
           </div>
           {(face.primary.kind === "text" ||
             (face.primary.kind === "number" && die.type !== "d4")) && (
-            <div className="field">
-              <label>Inscription</label>
+            <HintedField
+              label="Inscription"
+              hint="Characters carved on this face. Keep the face number, or type custom text."
+            >
               <input
                 type="text"
                 value={face.primary.text}
@@ -104,22 +107,26 @@ export function InspectorPanel() {
                   state.updateFaceGlyph(die.id, faceNo, "primary", { text: e.target.value })
                 }
               />
-            </div>
+            </HintedField>
           )}
           {face.primary.kind === "symbol" && (
-            <div className="field">
-              <label>Symbol</label>
+            <HintedField
+              label="Symbol"
+              hint="Pick a vault mark to carve as the main inscription on this face."
+            >
               <SymbolSelect
                 value={face.primary.symbolId ?? "star"}
                 onChange={(id) =>
                   state.updateFaceGlyph(die.id, faceNo, "primary", { symbolId: id })
                 }
               />
-            </div>
+            </HintedField>
           )}
           {face.primary.kind === "logo" && (
-            <div className="field">
-              <label>Logo</label>
+            <HintedField
+              label="Logo"
+              hint="Choose an uploaded crest to carve as the main mark on this face."
+            >
               <select
                 value={face.primary.logoId ?? ""}
                 onChange={(e) =>
@@ -133,7 +140,7 @@ export function InspectorPanel() {
                   </option>
                 ))}
               </select>
-            </div>
+            </HintedField>
           )}
           <GlyphPlace
             glyph={face.primary}
@@ -151,6 +158,7 @@ export function InspectorPanel() {
                 }
               />{" "}
               Underscore (6 / 9)
+              <InfoTip text="Adds a bar under 6 and 9 so they stay readable after a roll." />
             </label>
           </div>
           <button className="btn btn-small" onClick={() => state.copyFaceToAll(die.id, faceNo)}>
@@ -186,19 +194,23 @@ export function InspectorPanel() {
                 ))}
               </div>
               {face.emblem.kind === "symbol" && (
-                <div className="field">
-                  <label>Symbol</label>
+                <HintedField
+                  label="Symbol"
+                  hint="Vault mark that sits beside the number on this face."
+                >
                   <SymbolSelect
                     value={face.emblem.symbolId ?? "star"}
                     onChange={(id) =>
                       state.updateFaceGlyph(die.id, faceNo, "emblem", { symbolId: id })
                     }
                   />
-                </div>
+                </HintedField>
               )}
               {face.emblem.kind === "logo" && (
-                <div className="field">
-                  <label>Logo</label>
+                <HintedField
+                  label="Logo"
+                  hint="Uploaded crest that sits beside the number on this face."
+                >
                   <select
                     value={face.emblem.logoId ?? ""}
                     onChange={(e) =>
@@ -212,7 +224,7 @@ export function InspectorPanel() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </HintedField>
               )}
               <GlyphPlace
                 glyph={face.emblem}
@@ -246,16 +258,20 @@ export function InspectorPanel() {
       )}
 
       <h3>Die</h3>
-      <div className="field">
-        <label>Name</label>
+      <HintedField
+        label="Name"
+        hint="Label for this die in the vault, face editor, and exported STL filename."
+      >
         <input
           type="text"
           value={die.name}
           onChange={(e) => state.updateDie(die.id, { name: e.target.value })}
         />
-      </div>
-      <div className="field">
-        <label>Shape</label>
+      </HintedField>
+      <HintedField
+        label="Shape"
+        hint="Polyhedron type. Changing shape rebuilds faces and numbering for this die."
+      >
         <select
           value={die.type}
           onChange={(e) => state.updateDie(die.id, { type: e.target.value as typeof die.type })}
@@ -266,9 +282,11 @@ export function InspectorPanel() {
             </option>
           ))}
         </select>
-      </div>
-      <div className="field">
-        <label>Size format</label>
+      </HintedField>
+      <HintedField
+        label="Size format"
+        hint="Preset body sizes. Mini, standard, chonk, and giant match common tabletop scales. Custom unlocks the millimetre slider."
+      >
         <div className="chip-row">
           {(["mini", "standard", "chonk", "giant"] as SizeFormatId[]).map((fmt) => (
             <button
@@ -286,9 +304,10 @@ export function InspectorPanel() {
             custom
           </button>
         </div>
-      </div>
+      </HintedField>
       <Slider
         label="Size"
+        hint="Across-flats body size in millimetres. Moving this slider switches the die to a custom size."
         value={die.sizeMm}
         min={8}
         max={60}
@@ -298,6 +317,7 @@ export function InspectorPanel() {
       />
       <Slider
         label="Corner rounding"
+        hint="How much edges and corners are filleted. Higher is rounder and sits more comfortably in hand."
         value={die.cornerRounding}
         min={0}
         max={0.7}
@@ -306,6 +326,7 @@ export function InspectorPanel() {
       />
       <Slider
         label="Engraving depth"
+        hint="How deep numbers and marks are cut — or raised, in emboss mode — in millimetres."
         value={die.engravingDepth}
         min={0.2}
         max={2.4}
@@ -315,14 +336,17 @@ export function InspectorPanel() {
       />
       <PercentSlider
         label="Glyph scale"
+        hint="Size of every mark on this die, as a percent from the default. 0% is the default size."
         value={die.fontScale}
         defaultValue={DEFAULT_FONT_SCALE}
         min={0.4}
         max={1.8}
         onChange={(n) => state.updateDie(die.id, { fontScale: n })}
       />
-      <div className="field">
-        <label>Carve mode</label>
+      <HintedField
+        label="Carve mode"
+        hint="Engrave cuts marks into the body. Emboss raises them above the surface."
+      >
         <div className="chip-row">
           <button
             className={`chip ${die.engraveMode === "engrave" ? "active" : ""}`}
@@ -337,10 +361,12 @@ export function InspectorPanel() {
             Emboss
           </button>
         </div>
-      </div>
+      </HintedField>
       {(die.type === "d10" || die.type === "d00") && (
-        <div className="field">
-          <label>D10 numbering</label>
+        <HintedField
+          label="D10 numbering"
+          hint="0–9 is classic percentile pairing. 1–10 uses a ten in place of zero."
+        >
           <div className="chip-row">
             <button
               className={`chip ${die.d10Style === "0-9" ? "active" : ""}`}
@@ -355,11 +381,13 @@ export function InspectorPanel() {
               1–10
             </button>
           </div>
-        </div>
+        </HintedField>
       )}
       {die.type === "d6" && (
-        <div className="field">
-          <label>D6 glyphs</label>
+        <HintedField
+          label="D6 glyphs"
+          hint="Numerals carve digits. Pips carve classic dice-dot patterns instead."
+        >
           <div className="chip-row">
             <button
               className={`chip ${die.numberStyle === "numerals" ? "active" : ""}`}
@@ -374,7 +402,7 @@ export function InspectorPanel() {
               Pips
             </button>
           </div>
-        </div>
+        </HintedField>
       )}
       <div className="field">
         <label>
@@ -384,11 +412,13 @@ export function InspectorPanel() {
             onChange={(e) => state.updateDie(die.id, { bumpers: e.target.checked })}
           />{" "}
           Print bumpers
+          <InfoTip text="Small pads on the faces so the die sits off the resin plate while printing." />
         </label>
       </div>
       {die.bumpers && (
         <PercentSlider
           label="Bumper size"
+          hint="How large those print pads are, as a percent from the size-format default."
           value={die.bumperSize}
           defaultValue={defaultBumperSize(die.sizeFormat)}
           min={0.15}
@@ -396,8 +426,10 @@ export function InspectorPanel() {
           onChange={(n) => state.updateDie(die.id, { bumperSize: n })}
         />
       )}
-      <div className="field">
-        <label>Preview pigment</label>
+      <HintedField
+        label="Preview pigment"
+        hint="Viewport colour only. It is not written into the STL."
+      >
         <div className="color-row">
           {DIE_COLORS.map((c) => (
             <button
@@ -408,11 +440,12 @@ export function InspectorPanel() {
             />
           ))}
         </div>
-      </div>
+      </HintedField>
 
       <h3>Set-wide type</h3>
       <PercentSlider
         label="Global glyph scale"
+        hint="Scales every number and mark on every die in this set. 0% is the default size."
         value={state.project.globalFontScale}
         defaultValue={DEFAULT_GLOBAL_FONT_SCALE}
         min={0.6}

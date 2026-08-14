@@ -19,6 +19,7 @@ export function GlyphPlace({
     <>
       <PercentSlider
         label="Size"
+        hint="How large this mark is versus its default. 0% is the default size; negative shrinks, positive grows."
         value={glyph.scale}
         defaultValue={defaultScale}
         min={sizeMin}
@@ -27,6 +28,7 @@ export function GlyphPlace({
       />
       <Slider
         label="Move X"
+        hint="Slide the mark left or right on the face."
         value={glyph.offsetX}
         min={-1}
         max={1}
@@ -35,6 +37,7 @@ export function GlyphPlace({
       />
       <Slider
         label="Move Y"
+        hint="Slide the mark up or down on the face. Positive moves toward the top of the face."
         value={glyph.offsetY}
         min={-1}
         max={1}
@@ -43,6 +46,7 @@ export function GlyphPlace({
       />
       <Slider
         label="Rotation"
+        hint="Turn the mark on the face, in degrees. 0° is upright."
         value={glyph.rotation}
         min={-180}
         max={180}

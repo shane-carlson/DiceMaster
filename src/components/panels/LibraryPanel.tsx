@@ -11,6 +11,7 @@ import { useProjectStore } from "../../store/projectStore";
 import { api } from "../../api/client";
 import type { AssetSummary, SavedSetSummary } from "../../../shared/account";
 import { openSavedSet, saveCurrentSet, saveFontAsset, saveLogoAsset } from "../../sync/workspaceSync";
+import { HintedField } from "../ui/InfoTip";
 
 const ADDABLE: { type: DieType; label: string }[] = [
   { type: "d2", label: "D2" },
@@ -191,7 +192,10 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       </div>
 
       <h2>Fonts</h2>
-      <div className="field">
+      <HintedField
+        label="Typeface"
+        hint="Typeface used for numbers and text on every die in this set."
+      >
         <select value={project.fontId} onChange={(e) => setFontId(e.target.value)}>
           {fontsByGroup().map((group) => (
             <optgroup key={group.id} label={group.label}>
@@ -239,26 +243,31 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
             if (file) void onFont(file);
           }}
         />
-      </div>
+      </HintedField>
 
       <h2>Crests & logos</h2>
       <p className="help">
         Select a face, then choose how a mark lands: beside the number, or in place of it.
       </p>
-      <div className="kind-tabs">
-        <button
-          className={`chip ${placeModeActive === "add" ? "active" : ""}`}
-          onClick={() => setPlaceMode("add")}
-        >
-          Add beside number
-        </button>
-        <button
-          className={`chip ${placeModeActive === "replace" ? "active" : ""}`}
-          onClick={() => setPlaceMode("replace")}
-        >
-          Replace number
-        </button>
-      </div>
+      <HintedField
+        label="Place mode"
+        hint="Add beside number keeps the inscription and parks a crest next to it. Replace number swaps the inscription for the mark."
+      >
+        <div className="kind-tabs">
+          <button
+            className={`chip ${placeModeActive === "add" ? "active" : ""}`}
+            onClick={() => setPlaceMode("add")}
+          >
+            Add beside number
+          </button>
+          <button
+            className={`chip ${placeModeActive === "replace" ? "active" : ""}`}
+            onClick={() => setPlaceMode("replace")}
+          >
+            Replace number
+          </button>
+        </div>
+      </HintedField>
       <button className="btn btn-small" onClick={() => logoRef.current?.click()}>
         Upload SVG or PNG
       </button>

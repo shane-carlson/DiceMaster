@@ -10,6 +10,7 @@ import {
 } from "../../engine/stl";
 import { yieldToMain } from "../../engine/buildDie";
 import { useProjectStore } from "../../store/projectStore";
+import { HintedField, InfoTip } from "../ui/InfoTip";
 
 const idleProgress: ExportProgress = {
   done: 0,
@@ -148,22 +149,27 @@ export function ExportDialog({
           {STANDARD_RESIN_PLATE.width}×{STANDARD_RESIN_PLATE.depth} mm resin plate (Mars 3 / Photon
           class). Uncheck a die to leave it off the plate.
         </p>
-        <div className="chip-row" style={{ marginBottom: 10 }}>
-          <button
-            className={`chip ${mode === "plate" ? "active" : ""}`}
-            disabled={busy}
-            onClick={() => setMode("plate")}
-          >
-            One plate STL
-          </button>
-          <button
-            className={`chip ${mode === "zip" ? "active" : ""}`}
-            disabled={busy}
-            onClick={() => setMode("zip")}
-          >
-            Separate files (ZIP)
-          </button>
-        </div>
+        <HintedField
+          label="Export layout"
+          hint="One plate packs selected dice onto a single resin-printer STL. Separate files gives each die its own STL (ZIP if you pick more than one)."
+        >
+          <div className="chip-row">
+            <button
+              className={`chip ${mode === "plate" ? "active" : ""}`}
+              disabled={busy}
+              onClick={() => setMode("plate")}
+            >
+              One plate STL
+            </button>
+            <button
+              className={`chip ${mode === "zip" ? "active" : ""}`}
+              disabled={busy}
+              onClick={() => setMode("zip")}
+            >
+              Separate files (ZIP)
+            </button>
+          </div>
+        </HintedField>
         <div className="export-list">
           <label className="export-row">
             <input
@@ -176,6 +182,7 @@ export function ExportDialog({
               }}
             />
             <span>All dice</span>
+            <InfoTip text="Include every die in this set on the plate or in the ZIP." />
           </label>
           {project.dice.map((d) => {
             const state = rowState(d.id, selectedIds, progress, busy);
