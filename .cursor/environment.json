@@ -1,0 +1,26 @@
+{
+  "name": "DiceMaster",
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "npm run dev:server",
+      "description": "DiceMaster Express API (tsx watch) on http://localhost:3001"
+    },
+    {
+      "name": "client",
+      "command": "npm run dev:client",
+      "description": "DiceMaster Vite/React dev server on http://localhost:5173 (proxies /api to the server)"
+    }
+  ],
+  "ports": [
+    {
+      "name": "client",
+      "port": 5173
+    },
+    {
+      "name": "server",
+      "port": 3001
+    }
+  ]
+}
