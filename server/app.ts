@@ -126,11 +126,24 @@ function slugId(value: string): string {
 }
 
 export function createApp(vault: FileVault) {
-  vault.ensureAdmin({
-    email: (process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL).trim().toLowerCase(),
-    displayName: "Administrator",
-    passwordHash: hashPassword(process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD),
-  });
+  const adminEmail = (
+    process.env.DICEMASTER_ADMIN_EMAIL ??
+    process.env.ADMIN_EMAIL ??
+    DEFAULT_ADMIN_EMAIL
+  )
+    .trim()
+    .toLowerCase();
+  if (!vault.findUserByEmail(adminEmail)) {
+    vault.ensureAdmin({
+      email: adminEmail,
+      displayName: "Administrator",
+      passwordHash: hashPassword(
+        process.env.DICEMASTER_ADMIN_PASSWORD ??
+          process.env.ADMIN_PASSWORD ??
+          DEFAULT_ADMIN_PASSWORD,
+      ),
+    });
+  }
 
   const app = new Hono<AppEnv>();
 
@@ -192,7 +205,7 @@ export function createApp(vault: FileVault) {
 
   app.post("/api/auth/logout", async (c) => {
     vault.deleteSession(getCookie(c, SESSION_COOKIE));
-    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    deleteCookie(c, SESSION_COOKIE, { path: publicBasePath() || "/" });
     return c.json({ ok: true });
   });
 

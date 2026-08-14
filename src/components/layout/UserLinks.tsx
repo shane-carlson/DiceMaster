@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { HOSTED_ON_RW1 } from "../../appBase";
 import { useAuthStore } from "../../store/authStore";
 
 export function UserLinks({ gold = false }: { gold?: boolean }) {
@@ -28,8 +27,6 @@ export function UserLinks({ gold = false }: { gold?: boolean }) {
       </div>
     );
   }
-
-  if (HOSTED_ON_RW1) return null;
 
   return (
     <div className="user-links">
