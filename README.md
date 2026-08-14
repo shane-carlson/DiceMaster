@@ -40,7 +40,8 @@ npm run dev
 
 This starts the workshop on port 5173 and the account API on port 8787 (`/api` is proxied). Data lives in `./data` (override with `DATA_DIR`). After `npm run build`, `npm start` serves the API and the built site together.
 
-- **Sign up / Sign in** — cookie session (30 days) after email confirmation. Returning visits restore the last set, selected face, and panel.
+- **Sign up / Sign in** — cookie session (30 days) after email confirmation. New passwords need 12+ characters with mixed case, a number, and a symbol. Confirm the password on sign-up. Returning visits restore the last set, selected face, and panel.
+- **Google** — optional. Set `GOOGLE_CLIENT_ID` (a Google Cloud OAuth Web client) and add this origin to Authorized JavaScript origins. The workshop then shows Continue with Google on `/login` and `/signup`. Google accounts are treated as verified. Existing email accounts with the same address are linked.
 - **Profile** — `/account` to change display name, email, or password.
 - **Saved sets** — named snapshots in your vault; Save to vault from the workshop.
 - **Logos and fonts** — uploads are stored as blobs per account and can be reused across sets.

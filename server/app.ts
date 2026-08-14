@@ -19,6 +19,12 @@ import {
 import { hashPassword, verifyPassword } from "./crypto";
 import { FileVault, type UserRecord } from "./store";
 import { sendVerificationEmail } from "./verifyEmail";
+import { passwordIssues } from "../shared/password";
+import {
+  googleClientIdFromEnv,
+  verifyGoogleIdToken,
+  type GoogleIdentity,
+} from "./googleAuth";
 
 const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,9 +50,20 @@ function requireEmail(email: unknown): string {
   return email.trim().toLowerCase();
 }
 
-function requirePassword(password: unknown, label = "Password"): string {
-  if (typeof password !== "string" || password.length < 8 || password.length > 200) {
-    throw new HTTPException(400, { message: `${label} must be at least 8 characters.` });
+function requireLoginPassword(password: unknown): string {
+  if (typeof password !== "string" || password.length < 1 || password.length > 200) {
+    throw new HTTPException(400, { message: "Enter your password." });
+  }
+  return password;
+}
+
+function requireNewPassword(password: unknown, label = "Password"): string {
+  if (typeof password !== "string") {
+    throw new HTTPException(400, { message: `${label} is required.` });
+  }
+  const issues = passwordIssues(password, label);
+  if (issues.length) {
+    throw new HTTPException(400, { message: issues[0]! });
   }
   return password;
 }
@@ -174,7 +191,14 @@ function slugId(value: string): string {
     .slice(0, 40);
 }
 
-export function createApp(vault: FileVault) {
+export type AppOptions = {
+  googleClientId?: string;
+  verifyGoogleIdToken?: (credential: string, clientId: string) => Promise<GoogleIdentity>;
+};
+
+export function createApp(vault: FileVault, options: AppOptions = {}) {
+  const googleClientId = (options.googleClientId ?? googleClientIdFromEnv()).trim();
+  const verifyGoogle = options.verifyGoogleIdToken ?? verifyGoogleIdToken;
   const adminEmail = (
     process.env.DICEMASTER_ADMIN_EMAIL ??
     process.env.ADMIN_EMAIL ??
@@ -211,7 +235,7 @@ export function createApp(vault: FileVault) {
   app.post("/api/auth/signup", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const email = requireEmail(body.email);
-    const password = requirePassword(body.password);
+    const password = requireNewPassword(body.password);
     const displayName = requireDisplayName(body.displayName);
     const project = optionalProject(body.project);
     try {
@@ -241,7 +265,7 @@ export function createApp(vault: FileVault) {
   app.post("/api/auth/login", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const email = requireEmail(body.email);
-    const password = requirePassword(body.password);
+    const password = requireLoginPassword(body.password);
     const user = vault.findUserByEmail(email);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       throw new HTTPException(401, { message: "Email or password is incorrect." });
@@ -255,6 +279,61 @@ export function createApp(vault: FileVault) {
         await dispatchVerificationEmail(vault, c, user);
       }
       return c.json(unverifiedPayload(user.email), 403);
+    }
+    const guestProject = optionalProject(body.project);
+    const workspace = vault.getWorkspace(user.id);
+    if (!workspace.project && guestProject) {
+      vault.putWorkspace(user.id, { project: guestProject, session: { lastPath: "/workshop" } });
+    }
+    const session = vault.createSession(user.id, SESSION_MS);
+    setSessionCookie(c, session.id);
+    return c.json({ user: vault.toPublic(user), workspace: vault.getWorkspace(user.id) });
+  });
+
+  app.get("/api/auth/google/config", (c) =>
+    c.json({
+      enabled: Boolean(googleClientId),
+      clientId: googleClientId || null,
+    }),
+  );
+
+  app.post("/api/auth/google", async (c) => {
+    if (!googleClientId) {
+      throw new HTTPException(503, { message: "Google sign-in is not configured." });
+    }
+    const body = await c.req.json().catch(() => ({}));
+    const credential = typeof body.credential === "string" ? body.credential.trim() : "";
+    if (!credential) {
+      throw new HTTPException(400, { message: "Google sign-in failed." });
+    }
+    let identity: GoogleIdentity;
+    try {
+      identity = await verifyGoogle(credential, googleClientId);
+    } catch (err) {
+      throw new HTTPException(401, {
+        message: err instanceof Error ? err.message : "Google sign-in failed.",
+      });
+    }
+    let user = vault.findUserByGoogleId(identity.sub) ?? vault.findUserByEmail(identity.email);
+    if (!user) {
+      const displayName = requireDisplayName(identity.name || identity.email.split("@")[0]);
+      user = vault.createUser({
+        email: identity.email,
+        displayName,
+        passwordHash: "",
+        emailVerified: true,
+        googleId: identity.sub,
+      });
+    } else {
+      if (user.disabled) {
+        throw new HTTPException(403, { message: "This account has been disabled." });
+      }
+      const patch: Parameters<FileVault["updateUser"]>[1] = { googleId: identity.sub };
+      if (!user.emailVerified) {
+        patch.emailVerified = true;
+        patch.emailVerifiedAt = vault.now();
+      }
+      user = vault.updateUser(user.id, patch);
     }
     const guestProject = optionalProject(body.project);
     const workspace = vault.getWorkspace(user.id);
@@ -322,7 +401,7 @@ export function createApp(vault: FileVault) {
   app.post("/api/admin/login", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const email = requireEmail(body.email);
-    const password = requirePassword(body.password);
+    const password = requireLoginPassword(body.password);
     const user = vault.findUserByEmail(email);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       throw new HTTPException(401, { message: "Email or password is incorrect." });
@@ -369,10 +448,13 @@ export function createApp(vault: FileVault) {
     if (body.displayName !== undefined) patch.displayName = requireDisplayName(body.displayName);
     if (body.email !== undefined) patch.email = requireEmail(body.email);
     if (body.password !== undefined) {
-      if (typeof body.currentPassword !== "string" || !verifyPassword(body.currentPassword, user.passwordHash)) {
-        throw new HTTPException(400, { message: "Current password is incorrect." });
+      const hasPassword = Boolean(user.passwordHash);
+      if (hasPassword) {
+        if (typeof body.currentPassword !== "string" || !verifyPassword(body.currentPassword, user.passwordHash)) {
+          throw new HTTPException(400, { message: "Current password is incorrect." });
+        }
       }
-      patch.passwordHash = hashPassword(requirePassword(body.password, "New password"));
+      patch.passwordHash = hashPassword(requireNewPassword(body.password, "New password"));
     }
     try {
       const next = vault.updateUser(user.id, patch);
@@ -517,7 +599,7 @@ export function createApp(vault: FileVault) {
     const body = await c.req.json().catch(() => ({}));
     const email = requireEmail(body.email);
     const displayName = requireDisplayName(body.displayName);
-    const password = requirePassword(body.password);
+    const password = requireNewPassword(body.password);
     const role = body.role === "admin" ? "admin" : "user";
     try {
       const user = vault.createUser({
@@ -553,7 +635,7 @@ export function createApp(vault: FileVault) {
     const patch: Parameters<FileVault["updateUser"]>[1] = {};
     if (body.displayName !== undefined) patch.displayName = requireDisplayName(body.displayName);
     if (body.email !== undefined) patch.email = requireEmail(body.email);
-    if (body.password !== undefined) patch.passwordHash = hashPassword(requirePassword(body.password));
+    if (body.password !== undefined) patch.passwordHash = hashPassword(requireNewPassword(body.password));
     if (nextRole) patch.role = nextRole;
     if (nextDisabled !== undefined) patch.disabled = nextDisabled;
     try {

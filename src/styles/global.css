@@ -1197,6 +1197,99 @@ img {
   margin: 0;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.google-sign-in {
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.google-sign-in.is-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.google-sign-in-host {
+  display: flex;
+  justify-content: center;
+}
+
+.password-strength {
+  display: grid;
+  gap: 8px;
+}
+
+.password-strength-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.password-strength-bar span {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--panel-3);
+}
+
+.password-strength-bar span.on {
+  background: var(--blood);
+}
+
+.password-strength-bar.score-2 span.on {
+  background: #c4893a;
+}
+
+.password-strength-bar.score-3 span.on,
+.password-strength-bar.score-4 span.on {
+  background: var(--forest);
+}
+
+.password-strength-label {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.password-strength-label.score-1 {
+  color: var(--blood);
+}
+
+.password-strength-label.score-3,
+.password-strength-label.score-4 {
+  color: var(--forest);
+}
+
+.password-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.password-checks li.ok {
+  color: var(--forest);
+}
+
 .auth-notice {
   background: var(--gold-tint);
   border: 1px solid var(--gold-dim);

@@ -21,12 +21,13 @@ import { DEFAULT_SESSION, DEFAULT_SETTINGS, EMAIL_VERIFICATION_DAYS } from "../s
 
 const VERIFICATION_TTL_MS = EMAIL_VERIFICATION_DAYS * 24 * 60 * 60 * 1000;
 
-export type UserRecord = PublicUser & {
+export type UserRecord = Omit<PublicUser, "hasPassword" | "googleLinked"> & {
   passwordHash: string;
   updatedAt: number;
   disabled: boolean;
   emailVerifiedAt: number | null;
   verificationSentAt: number | null;
+  googleId?: string | null;
 };
 
 export type VerificationRecord = {
@@ -95,6 +96,8 @@ function publicUser(user: UserRecord): PublicUser {
     createdAt: user.createdAt,
     role,
     emailVerified: user.emailVerified ?? role === "admin",
+    hasPassword: Boolean(user.passwordHash),
+    googleLinked: Boolean(user.googleId),
   };
 }
 
@@ -109,6 +112,7 @@ function normalizeUser(raw: UserRecord | null): UserRecord | null {
     emailVerified,
     emailVerifiedAt: raw.emailVerifiedAt ?? (emailVerified ? raw.createdAt : null),
     verificationSentAt: raw.verificationSentAt ?? null,
+    googleId: raw.googleId ?? null,
   };
 }
 
@@ -151,6 +155,7 @@ export class FileVault {
     passwordHash: string;
     role?: UserRole;
     emailVerified?: boolean;
+    googleId?: string | null;
   }): UserRecord {
     const email = input.email.toLowerCase();
     const emails = readJson<EmailIndex>(this.emailsPath(), {});
@@ -172,6 +177,7 @@ export class FileVault {
       emailVerified,
       emailVerifiedAt: emailVerified ? now : null,
       verificationSentAt: null,
+      googleId: input.googleId ?? null,
     };
     emails[email] = user.id;
     writeJson(this.emailsPath(), emails);
@@ -195,6 +201,16 @@ export class FileVault {
     return id ? this.getUser(id) : null;
   }
 
+  findUserByGoogleId(sub: string): UserRecord | null {
+    if (!sub) return null;
+    const emails = readJson<EmailIndex>(this.emailsPath(), {});
+    for (const id of Object.values(emails)) {
+      const user = this.getUser(id);
+      if (user?.googleId === sub) return user;
+    }
+    return null;
+  }
+
   updateUser(
     id: string,
     patch: Partial<
@@ -208,6 +224,7 @@ export class FileVault {
         | "emailVerified"
         | "emailVerifiedAt"
         | "verificationSentAt"
+        | "googleId"
       >
     >,
   ): UserRecord {
@@ -240,6 +257,7 @@ export class FileVault {
       user.emailVerifiedAt = patch.emailVerifiedAt;
     }
     if (patch.verificationSentAt !== undefined) user.verificationSentAt = patch.verificationSentAt;
+    if (patch.googleId !== undefined) user.googleId = patch.googleId;
     user.updatedAt = this.now();
     writeJson(this.accountPath(id), user);
     return user;
