@@ -1,17 +1,12 @@
 import {
+  BufferAttribute,
   BufferGeometry,
   CylinderGeometry,
   Matrix4,
   Mesh,
   SphereGeometry,
 } from "three";
-import {
-  ADDITION,
-  Brush,
-  Evaluator,
-  SUBTRACTION,
-} from "three-bvh-csg";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { ADDITION, Brush, Evaluator, SUBTRACTION } from "three-bvh-csg";
 import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
@@ -322,9 +317,25 @@ export async function bakeEngraving(
   };
 
   const finish = (geom: BufferGeometry) => {
-    if (!geom.getAttribute("position") || geom.getAttribute("position")!.count < 3) {
+    const pos = geom.getAttribute("position");
+    if (!pos || pos.count < 3) {
       return build.body.clone();
     }
+    const start = geom.drawRange.start;
+    const count =
+      Number.isFinite(geom.drawRange.count) && geom.drawRange.count !== Infinity
+        ? geom.drawRange.count
+        : pos.count;
+    if (count < 3) return build.body.clone();
+    if (start !== 0 || count !== pos.count) {
+      const trimmed = pos.array.slice(start * 3, (start + count) * 3);
+      geom.setAttribute("position", new BufferAttribute(new Float32Array(trimmed), 3));
+      geom.deleteAttribute("normal");
+      geom.deleteAttribute("uv");
+    }
+    geom.setIndex(null);
+    geom.clearGroups();
+    geom.setDrawRange(0, Infinity);
     geom.computeVertexNormals();
     return geom;
   };
@@ -334,21 +345,17 @@ export async function bakeEngraving(
 
   try {
     let current = body;
-    const batch = 3;
     await onProgress?.(0, total);
-    for (let i = 0; i < total; i += batch) {
-      const parts = build.glyphs.slice(i, i + batch).map(worldCutter);
-      const merged = parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
-      if (merged?.getAttribute("position")) {
-        const tool = new Brush(prepareCsgGeometry(merged));
+    for (let i = 0; i < total; i++) {
+      const cutter = worldCutter(build.glyphs[i]);
+      if (cutter.getAttribute("position")) {
+        const tool = new Brush(prepareCsgGeometry(cutter));
         tool.updateMatrixWorld();
         current = evaluator.evaluate(current, tool, op);
+      } else {
+        cutter.dispose();
       }
-      for (const part of parts) {
-        if (part !== merged) part.dispose();
-      }
-      if (parts.length > 1) merged?.dispose();
-      await onProgress?.(Math.min(i + batch, total), total);
+      await onProgress?.(i + 1, total);
       await yieldToMain();
     }
     return finish(current.geometry.clone());

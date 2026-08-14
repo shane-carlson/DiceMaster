@@ -1,10 +1,10 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  ExtrudeGeometry,
+  Path,
   Shape,
-  ShapeGeometry,
   ShapePath,
+  ShapeUtils,
   Vector2,
   Vector3,
 } from "three";
@@ -189,37 +189,146 @@ function rectShape(r: Rect2): Shape {
 }
 
 function shapesBBox(shapes: Shape[]): Rect2 | null {
-  const probe = new ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false });
-  probe.computeBoundingBox();
-  const bb = probe.boundingBox;
-  probe.dispose();
-  if (!bb) return null;
-  return { minX: bb.min.x, minY: bb.min.y, maxX: bb.max.x, maxY: bb.max.y };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const shape of shapes) {
+    const rings = shapeRings(shape, 12);
+    if (!rings) continue;
+    const visit = (pts: Vector2[]) => {
+      for (const p of pts) {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      }
+    };
+    visit(rings.outer);
+    for (const hole of rings.holes) visit(hole);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+function uniqueRing(points: Vector2[], eps = 1e-5): Vector2[] {
+  const ring: Vector2[] = [];
+  const e2 = eps * eps;
+  for (const p of points) {
+    const prev = ring[ring.length - 1];
+    if (prev && prev.distanceToSquared(p) < e2) continue;
+    ring.push(p.clone());
+  }
+  if (ring.length > 1 && ring[0].distanceToSquared(ring[ring.length - 1]) < e2) {
+    ring.pop();
+  }
+  return ring;
+}
+
+function ringToPath(target: Path, points: Vector2[]) {
+  target.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    target.lineTo(points[i].x, points[i].y);
+  }
+  target.closePath();
+}
+
+export function shapeRings(
+  shape: Shape,
+  divisions = 16,
+): { outer: Vector2[]; holes: Vector2[][] } | null {
+  const extracted = shape.extractPoints(divisions);
+  const outer = uniqueRing(extracted.shape);
+  if (outer.length < 3) return null;
+  if (ShapeUtils.isClockWise(outer)) outer.reverse();
+  const holes: Vector2[][] = [];
+  for (const holePts of extracted.holes) {
+    const hole = uniqueRing(holePts);
+    if (hole.length < 3) continue;
+    if (!ShapeUtils.isClockWise(hole)) hole.reverse();
+    holes.push(hole);
+  }
+  return { outer, holes };
+}
+
+/**
+ * Drop duplicate close-points and force CCW solids / CW holes.
+ * Duplicate contour vertices make earcut return no lids, which yields an open
+ * tube that CSG cannot punch through a die face.
+ */
+export function sanitizeShape(shape: Shape, divisions = 16): Shape | null {
+  const rings = shapeRings(shape, divisions);
+  if (!rings) return null;
+  const next = new Shape();
+  ringToPath(next, rings.outer);
+  for (const hole of rings.holes) {
+    const path = new Path();
+    ringToPath(path, hole);
+    next.holes.push(path);
+  }
+  return next;
 }
 
 function scaleShapes(shapes: Shape[], scale: number): Shape[] {
-  return shapes.map((shape) => {
-    const next = new Shape();
-    const pts = shape.getPoints(20);
-    const holes = shape.holes.map((hole) => hole.getPoints(20));
-    if (pts.length === 0) return shape;
-    next.moveTo(pts[0].x * scale, pts[0].y * scale);
-    for (let i = 1; i < pts.length; i++) {
-      next.lineTo(pts[i].x * scale, pts[i].y * scale);
-    }
-    next.closePath();
-    for (const holePts of holes) {
-      if (holePts.length === 0) continue;
-      const hole = new Shape();
-      hole.moveTo(holePts[0].x * scale, holePts[0].y * scale);
-      for (let i = 1; i < holePts.length; i++) {
-        hole.lineTo(holePts[i].x * scale, holePts[i].y * scale);
+  return shapes
+    .map((shape) => {
+      const rings = shapeRings(shape, 20);
+      if (!rings) return null;
+      const next = new Shape();
+      ringToPath(
+        next,
+        rings.outer.map((p) => new Vector2(p.x * scale, p.y * scale)),
+      );
+      for (const hole of rings.holes) {
+        const path = new Path();
+        ringToPath(
+          path,
+          hole.map((p) => new Vector2(p.x * scale, p.y * scale)),
+        );
+        next.holes.push(path);
       }
-      hole.closePath();
-      next.holes.push(hole);
-    }
-    return next;
-  });
+      return next;
+    })
+    .filter((shape): shape is Shape => !!shape);
+}
+
+function pushTri(
+  verts: number[],
+  a: Vector2,
+  b: Vector2,
+  c: Vector2,
+  z: number,
+) {
+  verts.push(a.x, a.y, z, b.x, b.y, z, c.x, c.y, z);
+}
+
+function pushWallRing(verts: number[], ring: Vector2[], z0: number, z1: number) {
+  let i = ring.length;
+  while (--i >= 0) {
+    const j = i;
+    const k = i - 1 < 0 ? ring.length - 1 : i - 1;
+    const a = ring[j];
+    const b = ring[k];
+    verts.push(a.x, a.y, z0, b.x, b.y, z0, a.x, a.y, z1);
+    verts.push(b.x, b.y, z0, b.x, b.y, z1, a.x, a.y, z1);
+  }
+}
+
+function extrudeRings(outer: Vector2[], holes: Vector2[][], depth: number): number[] {
+  const verts: number[] = [];
+  const faces = ShapeUtils.triangulateShape(outer, holes);
+  const all = outer.concat(...holes);
+  for (const face of faces) {
+    const a = all[face[0]];
+    const b = all[face[1]];
+    const c = all[face[2]];
+    if (!a || !b || !c) continue;
+    pushTri(verts, c, b, a, 0);
+    pushTri(verts, a, b, c, depth);
+  }
+  pushWallRing(verts, outer, 0, depth);
+  for (const hole of holes) pushWallRing(verts, hole, 0, depth);
+  return verts;
 }
 
 export type GlyphZAlign = "center" | "inset" | "outset";
@@ -299,10 +408,27 @@ function collectPositions(geom: BufferGeometry): number[] {
 function wellFloor(shapes: Shape[], cx: number, cy: number, depth: number): BufferGeometry {
   const data: number[] = [];
   for (const shape of shapes) {
-    const g = new ShapeGeometry(shape);
-    g.translate(-cx, -cy, -depth);
-    data.push(...collectPositions(g));
-    g.dispose();
+    const rings = shapeRings(shape, 12);
+    if (!rings) continue;
+    const faces = ShapeUtils.triangulateShape(rings.outer, rings.holes);
+    const all = rings.outer.concat(...rings.holes);
+    for (const face of faces) {
+      const a = all[face[0]];
+      const b = all[face[1]];
+      const c = all[face[2]];
+      if (!a || !b || !c) continue;
+      data.push(
+        a.x - cx,
+        a.y - cy,
+        -depth,
+        b.x - cx,
+        b.y - cy,
+        -depth,
+        c.x - cx,
+        c.y - cy,
+        -depth,
+      );
+    }
   }
   const geom = new BufferGeometry();
   geom.setAttribute("position", new BufferAttribute(new Float32Array(data), 3));
@@ -318,12 +444,21 @@ export function extrudeShapes(
 ): BufferGeometry | null {
   if (shapes.length === 0) return null;
   const d = Math.max(depth, 0.08);
-  const geom = new ExtrudeGeometry(shapes, {
-    depth: d,
-    bevelEnabled: false,
-    curveSegments,
-    steps: 1,
-  });
+  const divisions = Math.max(12, curveSegments);
+  const verts: number[] = [];
+  const cleaned: Shape[] = [];
+  for (const shape of shapes) {
+    const rings = shapeRings(shape, divisions);
+    if (!rings) continue;
+    const extruded = extrudeRings(rings.outer, rings.holes, d);
+    if (extruded.length < 9) continue;
+    verts.push(...extruded);
+    const asShape = sanitizeShape(shape, divisions);
+    if (asShape) cleaned.push(asShape);
+  }
+  if (verts.length < 9) return null;
+  const geom = new BufferGeometry();
+  geom.setAttribute("position", new BufferAttribute(new Float32Array(verts), 3));
   geom.computeBoundingBox();
   const bb = geom.boundingBox;
   if (!bb) return geom;
@@ -335,7 +470,7 @@ export function extrudeShapes(
   if (openFace) {
     stripCapAtZ(geom, 0);
     stripCapAtZ(geom, -d);
-    const floor = wellFloor(shapes, cx, cy, d);
+    const floor = wellFloor(cleaned.length ? cleaned : shapes, cx, cy, d);
     const merged = collectPositions(geom).concat(collectPositions(floor));
     floor.dispose();
     if (merged.length >= 9) {

@@ -41,4 +41,21 @@ describe("engraved glyph wells", () => {
     expect(bb.max.z).toBeCloseTo(0, 2);
     expect(bb.min.z).toBeCloseTo(-depth, 2);
   });
+
+  it("builds a closed solid with lid caps", () => {
+    const s = new Shape();
+    s.moveTo(-2, -3);
+    s.lineTo(2, -3);
+    s.lineTo(2, 3);
+    s.lineTo(-2, 3);
+    s.closePath();
+    const depth = 2;
+    const geom = extrudeShapes([s], depth, "center");
+    expect(geom).toBeTruthy();
+    geom!.computeBoundingBox();
+    const bb = geom!.boundingBox!;
+    expect(bb.max.z - bb.min.z).toBeCloseTo(depth, 5);
+    const tris = geom!.getAttribute("position")!.count / 3;
+    expect(tris).toBeGreaterThanOrEqual(12);
+  });
 });
