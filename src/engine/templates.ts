@@ -99,7 +99,7 @@ export const SET_TEMPLATES: SetTemplate[] = [
     name: "Crystal Kit",
     tagline: "Chart-scale gems",
     description:
-      "Caltrop, teardrop, and crystal D4s plus the full polyhedral spread at catalog heights, including 26mm and 45mm D20s.",
+      "Caltrop, teardrop, and crystal D4s plus the full polyhedral spread at catalog heights, including a 26mm D20.",
     format: "standard",
     types: ["d4crystal", "d4teardrop", "d4", "d6", "d8", "d10", "d00", "d12", "d20"],
     pieces: CRYSTAL_KIT_CHART,
