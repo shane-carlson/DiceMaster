@@ -207,16 +207,19 @@ function crystalPrismVertices(): Vector3[] {
   ];
 }
 
-/** Double-ended kite D4: elongated disphenoid (two opposite edges, crossed). */
+/** Elongated square bipyramid: long 4-sided body (~80%) + short 4-sided cap. */
 function teardropVertices(): Vector3[] {
-  const h = 1.85;
-  const a = 0.72;
-  const b = 0.58;
+  const bottom = 0;
+  const top = 1;
+  const ringY = 0.8;
+  const r = 0.24;
   return [
-    new Vector3(a, h, 0),
-    new Vector3(-a, h, 0),
-    new Vector3(0, -h, b),
-    new Vector3(0, -h, -b),
+    new Vector3(0, bottom, 0),
+    new Vector3(0, top, 0),
+    new Vector3(r, ringY, r),
+    new Vector3(r, ringY, -r),
+    new Vector3(-r, ringY, r),
+    new Vector3(-r, ringY, -r),
   ];
 }
 

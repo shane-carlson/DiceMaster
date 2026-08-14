@@ -34,9 +34,18 @@ function makeFrame(
   const n = normal.clone().normalize();
   let up: Vector3;
 
-  const useLongAxis =
-    type === "d10" || type === "d00" || type === "d4crystal" || type === "d4teardrop";
-  if (useLongAxis && vertices.length >= 3) {
+  if (type === "d4teardrop" && vertices.length >= 3) {
+    // Long body faces: point the numeral toward the cap (away from the sharp tip).
+    let lowest = vertices[0];
+    for (const v of vertices) {
+      if (v.y < lowest.y) lowest = v;
+    }
+    up = center.clone().sub(lowest);
+    up.sub(n.clone().multiplyScalar(up.dot(n)));
+  } else if (
+    (type === "d10" || type === "d00" || type === "d4crystal") &&
+    vertices.length >= 3
+  ) {
     // Kite / crystal: point the numeral at the polar (sharp) vertex.
     let farthest = vertices[0];
     let best = -Infinity;
@@ -228,7 +237,10 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     }
 
     const seed = makeFrame(type, centroid, normal, vertices);
-    const center = visualCenter(vertices, centroid, seed.tangent, seed.bitangent);
+    const center =
+      type === "d4teardrop"
+        ? centroid.clone()
+        : visualCenter(vertices, centroid, seed.tangent, seed.bitangent);
     const { tangent, bitangent } = makeFrame(type, center, normal, vertices);
     faces.push({
       index: i,
@@ -264,6 +276,25 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     const eqSet = new Set(equatorial);
     const caps = faces.filter((f) => !eqSet.has(f));
     faces = [...equatorial, ...caps];
+  }
+
+  if (type === "d4teardrop" && faces.length > 4) {
+    let south = faces[0]?.vertices[0];
+    for (const face of faces) {
+      for (const v of face.vertices) {
+        if (!south || v.y < south.y) south = v;
+      }
+    }
+    const body = faces.filter((f) =>
+      f.vertices.some((v) => v.distanceToSquared(south) < 1e-8),
+    );
+    const bodySorted = [...body].sort(
+      (a, b) =>
+        Math.atan2(a.center.x, a.center.z) - Math.atan2(b.center.x, b.center.z),
+    );
+    const bodySet = new Set(bodySorted);
+    const caps = faces.filter((f) => !bodySet.has(f));
+    faces = [...bodySorted, ...caps];
   }
 
   faces.forEach((f, idx) => {

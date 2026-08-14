@@ -249,7 +249,8 @@ export function InspectorPanel() {
       )}
       {die.type === "d4teardrop" && (
         <p className="help">
-          Teardrop D4s are a double-ended kite — one number in the center of each face.
+          Teardrop D4s land on four long triangular faces (~80% of the length). The short
+          four-sided cap is unnumbered; numerals point toward the cap.
         </p>
       )}
       {!face && (

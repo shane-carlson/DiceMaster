@@ -30,7 +30,7 @@ const TYPES: DieType[] = [
 const EXPECTED: Record<string, number> = {
   d4: 4,
   d4crystal: 12,
-  d4teardrop: 4,
+  d4teardrop: 8,
   d6: 6,
   d8: 8,
   d10: 10,
@@ -94,16 +94,42 @@ describe("polyhedral geometry", () => {
     expect(numbered.slice(4).every((f) => f.label === "")).toBe(true);
   });
 
-  it("teardrop D4 is a double-ended kite at chart height", () => {
+  it("teardrop D4 is a long square pyramid with a four-sided cap", () => {
     const geo = createDieGeometry("d4teardrop", 29);
     geo.computeBoundingBox();
     const bb = geo.boundingBox!;
-    expect(bb.max.y - bb.min.y).toBeCloseTo(29, 4);
-    const faces = extractFaces(geo, "d4teardrop");
-    expect(faces).toHaveLength(4);
-    for (const face of faces) {
-      expect(face.vertices.length).toBe(3);
+    const height = bb.max.y - bb.min.y;
+    expect(height).toBeCloseTo(29, 4);
+
+    const verts: Vector3[] = [];
+    const pos = geo.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      const v = new Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+      if (!verts.some((u) => u.distanceToSquared(v) < 1e-8)) verts.push(v);
     }
+    expect(verts).toHaveLength(6);
+    const tips = verts.filter(
+      (v) => Math.hypot(v.x, v.z) < 0.05,
+    );
+    expect(tips).toHaveLength(2);
+    const ring = verts.filter((v) => Math.hypot(v.x, v.z) >= 0.05);
+    expect(ring).toHaveLength(4);
+    const ringY = ring.reduce((s, v) => s + v.y, 0) / 4;
+    expect((ringY - bb.min.y) / height).toBeCloseTo(0.8, 2);
+
+    const faces = extractFaces(geo, "d4teardrop");
+    expect(faces).toHaveLength(8);
+    const body = faces.slice(0, 4);
+    const caps = faces.slice(4);
+    expect(caps).toHaveLength(4);
+    for (const face of body) {
+      expect(face.vertices.length).toBe(3);
+      expect(face.area).toBeGreaterThan(caps[0].area);
+      expect(face.bitangent.y).toBeGreaterThan(0.5);
+    }
+    const numbered = numberFaces("d4teardrop", faces, "0-9");
+    expect(numbered.slice(0, 4).map((f) => f.label).sort()).toEqual(["1", "2", "3", "4"]);
+    expect(numbered.slice(4).every((f) => f.label === "")).toBe(true);
   });
 
   it("caltrop D4 stands point-up at the given height", () => {

@@ -148,12 +148,12 @@ export function numberFaces(
       );
       if (opposite) byIndex(face).label = vertexLabel.get(key(opposite)) ?? "1";
     }
-  } else if (type === "d4crystal") {
-    // Equatorial prism faces are ordered first (see extractFaces). Caps stay blank.
+  } else if (type === "d4crystal" || type === "d4teardrop") {
+    // Numbered faces are ordered first (see extractFaces). Caps stay blank.
     for (let i = 0; i < Math.min(4, faces.length); i++) {
       byIndex(faces[i]).label = labels[i] ?? String(i + 1);
     }
-  } else if (type === "d4teardrop" || type === "d2") {
+  } else if (type === "d2") {
     faces.forEach((f, i) => {
       byIndex(f).label = labels[i] ?? String(i + 1);
     });

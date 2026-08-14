@@ -59,6 +59,15 @@ describe("face editor outlines", () => {
       expect(face.polygon.length).toBe(4);
     }
   });
+
+  it("shows only the four long body faces of a teardrop D4", () => {
+    const die = createDie("d4teardrop", "standard");
+    const faces = previewFacesForSet([die]);
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.polygon.length).toBe(3);
+    }
+  });
 });
 
 describe("face camera pose", () => {
