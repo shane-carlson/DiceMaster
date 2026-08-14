@@ -13,6 +13,7 @@ A browser workshop for forging **custom polyhedral dice masters** and exporting 
 - Custom TTF/OTF fonts, 37 built-in OFL faces (fantasy, sci-fi, arcade), SVG/PNG logos, and a symbol vault
 - Per-face offset, rotation, scale, 6/9 orientation marks (underline, dot, or arrow), corner emblems, bumpers, engrave or emboss
 - Project save/load (JSON) and STL export (single file or ZIP)
+- Packed plate STLs sit vertex-down (tokens on a rim) with an 8 mm support-tree gap for resin auto-supports
 
 STL units are millimetres (`1` unit = `1` mm). Open the files in Chitubox, Lychee, PrusaSlicer, or similar.
 

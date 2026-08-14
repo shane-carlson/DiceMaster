@@ -5,6 +5,12 @@ import JSZip from "jszip";
 import type { Font } from "opentype.js";
 import { bakeEngraving, buildDie, yieldToMain, type DieBuild } from "./buildDie";
 import { packFootprints, STANDARD_RESIN_PLATE } from "./packPlate";
+import {
+  matchPackedFootprint,
+  orientForScaffoldSupports,
+  printFootprint,
+  toSlicerZUp,
+} from "./printLayout";
 import type { DieInstance, LogoAsset, Project } from "./types";
 
 const exporter = new STLExporter();
@@ -130,6 +136,8 @@ export async function exportDieStl(
       await onProgress?.(dieProgress(die, 0, 1, phase, gDone, gTotal));
     },
   );
+  orientForScaffoldSupports(baked, die.type);
+  toSlicerZUp(baked);
   const buffer = geometryToStl(baked);
   baked.dispose();
   build.body.dispose();
@@ -166,6 +174,8 @@ export async function exportProjectZip(
         await onProgress?.(dieProgress(die, i, total, phase, gDone, gTotal));
       },
     );
+    orientForScaffoldSupports(baked, die.type);
+    toSlicerZUp(baked);
     const buffer = geometryToStl(baked);
     folder.file(`${slug(die.name)}-${die.type}-${Math.round(die.sizeMm)}mm.stl`, buffer);
     baked.dispose();
@@ -196,13 +206,6 @@ export function safeFilename(name: string, ext: string): string {
   return `${slug(name)}.${ext}`;
 }
 
-function sitOnBuildPlate(geom: BufferGeometry) {
-  geom.computeBoundingBox();
-  const bb = geom.boundingBox;
-  if (!bb) return;
-  geom.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
-}
-
 export async function exportPackedPlateStl(
   project: Project,
   dice: DieInstance[],
@@ -229,14 +232,13 @@ export async function exportPackedPlateStl(
         await onProgress?.(dieProgress(die, i, total, phase, gDone, gTotal));
       },
     );
-    sitOnBuildPlate(baked);
-    baked.computeBoundingBox();
-    const bb = baked.boundingBox!;
+    orientForScaffoldSupports(baked, die.type);
+    const fp = printFootprint(baked);
     pieces.push({
       id: die.id,
       geom: baked,
-      width: bb.max.x - bb.min.x,
-      depth: bb.max.z - bb.min.z,
+      width: fp.width,
+      depth: fp.depth,
     });
     build.body.dispose();
     for (const g of build.glyphs) g.geometry.dispose();
@@ -261,6 +263,7 @@ export async function exportPackedPlateStl(
   for (const slot of packed.slots) {
     const piece = byId.get(slot.id);
     if (!piece) continue;
+    matchPackedFootprint(piece.geom, slot.width, slot.depth);
     piece.geom.translate(slot.x, 0, slot.z);
     placed.push(piece.geom);
   }
@@ -271,10 +274,7 @@ export async function exportPackedPlateStl(
   }
   const merged =
     placed.length <= 1 ? placed[0]! : (mergeGeometries(placed, false) ?? placed[0]!);
-  merged.rotateX(-Math.PI / 2);
-  merged.computeBoundingBox();
-  const bb = merged.boundingBox;
-  if (bb) merged.translate(-bb.min.x, -bb.min.y, -bb.min.z);
+  toSlicerZUp(merged);
 
   const buffer = geometryToStl(merged);
   if (placed.length > 1) {
