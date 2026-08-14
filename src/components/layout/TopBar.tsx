@@ -51,11 +51,14 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       </div>
       <div className="topbar-right">
         {note && <span className="save-pill">{note}</span>}
-        <button className="btn btn-small" onClick={() => void onSave()}>
-          {signedIn ? "Save to vault" : "Save"}
-        </button>
-        <button className="btn btn-small" onClick={() => downloadJson(project)}>
-          JSON
+        <button
+          className="btn btn-small"
+          onClick={() => {
+            resetProject();
+            useAuthStore.getState().patchSession({ lastSetId: null });
+          }}
+        >
+          New set
         </button>
         <button className="btn btn-small" onClick={() => fileRef.current?.click()}>
           Load
@@ -70,14 +73,11 @@ export function TopBar({ onExport }: { onExport: () => void }) {
             if (file) void load(file);
           }}
         />
-        <button
-          className="btn btn-small"
-          onClick={() => {
-            resetProject();
-            useAuthStore.getState().patchSession({ lastSetId: null });
-          }}
-        >
-          New set
+        <button className="btn btn-small" onClick={() => void onSave()}>
+          {signedIn ? "Save to vault" : "Save"}
+        </button>
+        <button className="btn btn-small" onClick={() => downloadJson(project)}>
+          Save Local (JSON)
         </button>
         <button className="btn btn-gold btn-small" onClick={onExport}>
           Export STL
