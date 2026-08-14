@@ -145,13 +145,13 @@ export function ExportDialog({
       <div className="modal" onClick={(e) => e.stopPropagation()} aria-busy={busy}>
         <h2>{busy ? "Forging STL masters" : "Export STL masters"}</h2>
         <p className="help">
-          Binary STL, 1 unit = 1 mm. By default every selected die is packed onto a single{" "}
-          {STANDARD_RESIN_PLATE.width}×{STANDARD_RESIN_PLATE.depth} mm resin plate (Mars 3 / Photon
-          class). Uncheck a die to leave it off the plate.
+          Binary STL, 1 unit = 1 mm. Selected dice are oriented vertex-down (tokens and coins on
+          a rim) and packed onto a single {STANDARD_RESIN_PLATE.width}×{STANDARD_RESIN_PLATE.depth}{" "}
+          mm resin plate with room for scaffold supports. Uncheck a die to leave it off the plate.
         </p>
         <HintedField
           label="Export layout"
-          hint="One plate packs selected dice onto a single resin-printer STL. Separate files gives each die its own STL (ZIP if you pick more than one)."
+          hint="One plate packs selected dice onto a single resin-printer STL, vertex-down with a support-tree gap. Separate files gives each die its own STL (ZIP if you pick more than one), still oriented for scaffold supports."
         >
           <div className="chip-row">
             <button
