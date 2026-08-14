@@ -19,7 +19,7 @@ import {
 } from "../../engine/cameraFocus";
 import { usesVertexNumerals } from "../../engine/d4";
 import { extractFaces } from "../../engine/faces";
-import { createDieGeometry } from "../../engine/geometry";
+import { createDieGeometry, roundConvexGeometry } from "../../engine/geometry";
 import { dieWorldPosition, layoutSet } from "../../engine/layout";
 
 type OrbitLike = {
@@ -222,10 +222,10 @@ function PlacedDie({
   const selectDie = useProjectStore((s) => s.selectDie);
   const focusDieFace = useProjectStore((s) => s.focusDieFace);
   const { build } = useDieBuild(die, font, logos, scale);
-  const fallback = useMemo(
-    () => createDieGeometry(die.type, die.sizeMm),
-    [die.type, die.sizeMm],
-  );
+  const fallback = useMemo(() => {
+    const sharp = createDieGeometry(die.type, die.sizeMm);
+    return roundConvexGeometry(sharp, die.cornerRounding, die.sizeMm);
+  }, [die.type, die.sizeMm, die.cornerRounding]);
   const position = useMemo(
     () => dieWorldPosition(index, count, spacing),
     [index, count, spacing],
@@ -244,6 +244,7 @@ function PlacedDie({
         selected={selected}
         selectedFace={selected ? selectedFaceIndex : null}
         inspectFace={previewMode === "face" && selected}
+        rounded={build?.rounded ?? die.cornerRounding > 0.004}
         onSelectDie={() => selectDie(die.id)}
         onSelectFace={(i) => focusDieFace(die.id, i)}
       />

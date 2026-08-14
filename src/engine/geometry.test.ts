@@ -10,7 +10,7 @@ import {
   glyphFitSize,
   polygonIncenter2,
 } from "./faces";
-import { createDieGeometry } from "./geometry";
+import { createDieGeometry, roundConvexGeometry, uniqueVertices } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
 import { faceMatrix, buildDie } from "./buildDie";
@@ -145,6 +145,41 @@ describe("polyhedral geometry", () => {
     expect(bb.max.y - bb.min.y).toBeCloseTo(20, 4);
     const faces = extractFaces(geo, "d4");
     expect(faces).toHaveLength(4);
+  });
+});
+
+describe("corner rounding", () => {
+  it("leaves a sharp hull unchanged at zero", () => {
+    const sharp = createDieGeometry("d6", 16);
+    expect(roundConvexGeometry(sharp, 0, 16)).toBe(sharp);
+  });
+
+  it("adds vertices and keeps catalog size on a d6", () => {
+    const sharp = createDieGeometry("d6", 16);
+    const rounded = roundConvexGeometry(sharp, 0.18, 16);
+    expect(rounded).not.toBe(sharp);
+    expect(uniqueVertices(rounded).length).toBeGreaterThan(uniqueVertices(sharp).length);
+    rounded.computeBoundingBox();
+    const bb = rounded.boundingBox!;
+    const dim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+    expect(dim).toBeCloseTo(16, 3);
+  });
+
+  it("does not change extracted face count on the sharp hull", () => {
+    const sharp = createDieGeometry("d20", 20);
+    roundConvexGeometry(sharp, 0.4, 20);
+    expect(extractFaces(sharp, "d20")).toHaveLength(20);
+  });
+
+  it("builds a rounded preview body while picking from the sharp faces", async () => {
+    const die = createDie("d6", "standard", { cornerRounding: 0.35 });
+    const build = await buildDie(die, font, [], 1, "preview");
+    expect(build.rounded).toBe(true);
+    expect(build.body).not.toBe(build.pickGeometry);
+    expect(build.faces).toHaveLength(6);
+    expect(uniqueVertices(build.body).length).toBeGreaterThan(
+      uniqueVertices(build.pickGeometry).length,
+    );
   });
 });
 
