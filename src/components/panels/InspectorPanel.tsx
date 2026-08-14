@@ -304,7 +304,7 @@ export function InspectorPanel() {
       {die.type === "token" && (
         <HintedField
           label="Silhouette"
-          hint="Two-faced token outline. Thickness stays 5mm; only the face shape changes."
+          hint={`Two-faced token outline. Thickness stays ${TOKEN_THICKNESS_MM}mm; only the face shape changes.`}
         >
           <div className="chip-row">
             {TOKEN_SHAPES.map((shape) => (

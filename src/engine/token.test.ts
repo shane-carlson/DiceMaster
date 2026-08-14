@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import opentype from "opentype.js";
 import { createDie, ensureTokenShape } from "./defaults";
-import { extractFaces, faceInradius, glyphFitSize } from "./faces";
+import { extractFaces, faceInradius, glyphFitSize, canShadeFromFaces, geometryFromFaces } from "./faces";
 import { previewFacesForSet } from "./facePreview";
 import { createDieGeometry } from "./geometry";
 import { normalizeProject } from "./projectIO";
@@ -20,7 +20,7 @@ import { buildDie } from "./buildDie";
 const font = opentype.parse(readFileSync("public/fonts/Oswald-Bold.ttf").buffer);
 
 describe("maker token", () => {
-  it("defaults to 25mm diameter, 5mm thick, coin silhouette, blank faces", () => {
+  it("defaults to 25mm diameter, 3.5mm thick, coin silhouette, blank faces", () => {
     const die = createDie("token");
     expect(die.name).toBe("Maker Token");
     expect(die.sizeMm).toBe(TOKEN_DIAMETER_MM);
@@ -52,7 +52,7 @@ describe("maker token", () => {
     });
   }
 
-  it("keeps thickness at 5mm when diameter changes", () => {
+  it("keeps thickness at 3.5mm when diameter changes", () => {
     const geo = createTokenGeometry("hexagon", 40);
     const { diameter, thickness } = tokenBounds(geo);
     expect(diameter).toBeCloseTo(40, 2);
@@ -126,5 +126,23 @@ describe("maker token", () => {
     const fit = glyphFitSize(face, 0, TOKEN_MARK_FILL);
     expect(fit).toBeGreaterThan(8);
     expect(Math.hypot(glyph.ox, glyph.oy)).toBeLessThan(faceInradius(face));
+  });
+
+  it("does not draw tokens as two hollow caps", () => {
+    for (const shape of TOKEN_SHAPES) {
+      const geo = createDieGeometry("token", TOKEN_DIAMETER_MM, shape);
+      const faces = extractFaces(geo, "token");
+      expect(canShadeFromFaces(faces), shape).toBe(false);
+      const oneCap = geometryFromFaces([faces[0]]);
+      expect(oneCap, shape).toBeTruthy();
+      oneCap!.computeBoundingBox();
+      const capH = oneCap!.boundingBox!.max.y - oneCap!.boundingBox!.min.y;
+      expect(capH, shape).toBeLessThan(0.35);
+      geo.computeBoundingBox();
+      expect(geo.boundingBox!.max.y - geo.boundingBox!.min.y, shape).toBeCloseTo(
+        TOKEN_THICKNESS_MM,
+        3,
+      );
+    }
   });
 });

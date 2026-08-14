@@ -7,7 +7,7 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
-import { faceOutline3D, geometryFromFaces, pickFaceIndex, type DieFace } from "../../engine/faces";
+import { faceOutline3D, geometryFromFaces, canShadeFromFaces, pickFaceIndex, type DieFace } from "../../engine/faces";
 import { numeralInk } from "../../engine/ink";
 
 function GlyphMesh({
@@ -90,7 +90,7 @@ export function DieMesh({
   }, [faces, selectedFace, inspectFace]);
 
   const shaded = useMemo(
-    () => (rounded ? null : geometryFromFaces(faces)),
+    () => (rounded || !canShadeFromFaces(faces) ? null : geometryFromFaces(faces)),
     [faces, rounded],
   );
   const displayBody = shaded ?? body;
