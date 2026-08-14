@@ -16,9 +16,13 @@ import { withBase } from "../appBase";
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  email?: string;
+  constructor(status: number, message: string, code?: string, email?: string) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.email = email;
   }
 }
 
@@ -29,33 +33,55 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const res = await fetch(withBase(path), { ...init, headers, credentials: "include" });
   const text = await res.text();
-  let data: { error?: string } & Record<string, unknown>;
+  let data: { error?: string; code?: string; email?: string } & Record<string, unknown>;
   try {
-    data = text ? (JSON.parse(text) as { error?: string } & Record<string, unknown>) : {};
+    data = text ? (JSON.parse(text) as { error?: string; code?: string; email?: string } & Record<string, unknown>) : {};
   } catch {
     throw new ApiError(res.status, "Account service is unavailable.");
   }
   if (!res.ok) {
-    throw new ApiError(res.status, data.error || "Request failed.");
+    throw new ApiError(
+      res.status,
+      data.error || "Request failed.",
+      typeof data.code === "string" ? data.code : undefined,
+      typeof data.email === "string" ? data.email : undefined,
+    );
   }
   return data as T;
 }
 
 export type AuthPayload = { user: PublicUser; workspace: WorkspacePayload };
+export type SignupPayload = {
+  needsVerification: true;
+  email: string;
+  emailSent: boolean;
+  user: PublicUser;
+};
 
 export const api = {
   me: () => request<AuthPayload>("/api/me"),
   signup: (body: { email: string; password: string; displayName: string; project?: Project }) =>
-    request<AuthPayload>("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
+    request<SignupPayload>("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { email: string; password: string; project?: Project }) =>
     request<AuthPayload>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  verifyEmail: (token: string) =>
+    request<AuthPayload>("/api/auth/verify", { method: "POST", body: JSON.stringify({ token }) }),
+  resendVerification: (email: string) =>
+    request<{ ok: boolean }>("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
   updateProfile: (body: {
     displayName?: string;
     email?: string;
     password?: string;
     currentPassword?: string;
-  }) => request<{ user: PublicUser }>("/api/me", { method: "PATCH", body: JSON.stringify(body) }),
+  }) =>
+    request<{ user: PublicUser; needsVerification?: boolean; email?: string }>("/api/me", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   putWorkspace: (body: Partial<WorkspacePayload>) =>
     request<WorkspacePayload>("/api/workspace", { method: "PUT", body: JSON.stringify(body) }),
   listSets: () => request<{ sets: SavedSetSummary[] }>("/api/sets"),

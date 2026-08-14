@@ -1053,6 +1053,20 @@ img {
   margin: 0;
 }
 
+.auth-notice {
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 16px 0;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-notice p {
+  margin: 0;
+}
+
 .account-page .account-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);

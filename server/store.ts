@@ -17,12 +17,22 @@ import type {
   WorkspacePayload,
   WorkspaceSession,
 } from "../shared/account";
-import { DEFAULT_SESSION, DEFAULT_SETTINGS } from "../shared/account";
+import { DEFAULT_SESSION, DEFAULT_SETTINGS, EMAIL_VERIFICATION_DAYS } from "../shared/account";
+
+const VERIFICATION_TTL_MS = EMAIL_VERIFICATION_DAYS * 24 * 60 * 60 * 1000;
 
 export type UserRecord = PublicUser & {
   passwordHash: string;
   updatedAt: number;
   disabled: boolean;
+  emailVerifiedAt: number | null;
+  verificationSentAt: number | null;
+};
+
+export type VerificationRecord = {
+  userId: string;
+  expiresAt: number;
+  consumedAt?: number;
 };
 
 export type CatalogFontRecord = SiteFont & {
@@ -70,22 +80,35 @@ function writeJson(path: string, data: unknown) {
   renameSync(tmp, path);
 }
 
+function randomToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function publicUser(user: UserRecord): PublicUser {
+  const role = user.role ?? "user";
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     createdAt: user.createdAt,
-    role: user.role ?? "user",
+    role,
+    emailVerified: user.emailVerified ?? role === "admin",
   };
 }
 
 function normalizeUser(raw: UserRecord | null): UserRecord | null {
   if (!raw) return null;
+  const role = raw.role ?? "user";
+  const emailVerified = raw.emailVerified ?? role === "admin";
   return {
     ...raw,
-    role: raw.role ?? "user",
+    role,
     disabled: Boolean(raw.disabled),
+    emailVerified,
+    emailVerifiedAt: raw.emailVerifiedAt ?? (emailVerified ? raw.createdAt : null),
+    verificationSentAt: raw.verificationSentAt ?? null,
   };
 }
 
@@ -110,6 +133,10 @@ export class FileVault {
     return join(this.metaDir, "sessions.json");
   }
 
+  private verificationsPath() {
+    return join(this.metaDir, "verifications.json");
+  }
+
   private accountPath(userId: string) {
     return join(this.userDir(userId), "account.json");
   }
@@ -123,6 +150,7 @@ export class FileVault {
     displayName: string;
     passwordHash: string;
     role?: UserRole;
+    emailVerified?: boolean;
   }): UserRecord {
     const email = input.email.toLowerCase();
     const emails = readJson<EmailIndex>(this.emailsPath(), {});
@@ -130,6 +158,8 @@ export class FileVault {
       throw Object.assign(new Error("An account with that email already exists."), { status: 409 });
     }
     const now = this.now();
+    const role = input.role ?? "user";
+    const emailVerified = input.emailVerified ?? role === "admin";
     const user: UserRecord = {
       id: crypto.randomUUID(),
       email,
@@ -137,8 +167,11 @@ export class FileVault {
       passwordHash: input.passwordHash,
       createdAt: now,
       updatedAt: now,
-      role: input.role ?? "user",
+      role,
       disabled: false,
+      emailVerified,
+      emailVerifiedAt: emailVerified ? now : null,
+      verificationSentAt: null,
     };
     emails[email] = user.id;
     writeJson(this.emailsPath(), emails);
@@ -164,7 +197,19 @@ export class FileVault {
 
   updateUser(
     id: string,
-    patch: Partial<Pick<UserRecord, "displayName" | "email" | "passwordHash" | "role" | "disabled">>,
+    patch: Partial<
+      Pick<
+        UserRecord,
+        | "displayName"
+        | "email"
+        | "passwordHash"
+        | "role"
+        | "disabled"
+        | "emailVerified"
+        | "emailVerifiedAt"
+        | "verificationSentAt"
+      >
+    >,
   ): UserRecord {
     const user = this.getUser(id);
     if (!user) {
@@ -179,12 +224,22 @@ export class FileVault {
       delete emails[user.email];
       emails[nextEmail] = id;
       user.email = nextEmail;
+      user.emailVerified = false;
+      user.emailVerifiedAt = null;
       writeJson(this.emailsPath(), emails);
+      this.clearVerificationsForUser(id);
     }
     if (patch.displayName) user.displayName = patch.displayName;
     if (patch.passwordHash) user.passwordHash = patch.passwordHash;
     if (patch.role) user.role = patch.role;
     if (patch.disabled !== undefined) user.disabled = patch.disabled;
+    if (patch.emailVerified !== undefined) {
+      user.emailVerified = patch.emailVerified;
+      user.emailVerifiedAt = patch.emailVerified ? (patch.emailVerifiedAt ?? this.now()) : null;
+    } else if (patch.emailVerifiedAt !== undefined) {
+      user.emailVerifiedAt = patch.emailVerifiedAt;
+    }
+    if (patch.verificationSentAt !== undefined) user.verificationSentAt = patch.verificationSentAt;
     user.updatedAt = this.now();
     writeJson(this.accountPath(id), user);
     return user;
@@ -376,8 +431,72 @@ export class FileVault {
     delete emails[user.email];
     writeJson(this.emailsPath(), emails);
     this.deleteSessionsForUser(id);
+    this.clearVerificationsForUser(id);
     rmSync(this.userDir(id), { recursive: true, force: true });
     return true;
+  }
+
+  private readVerifications(): Record<string, VerificationRecord> {
+    return readJson<Record<string, VerificationRecord>>(this.verificationsPath(), {});
+  }
+
+  clearVerificationsForUser(userId: string) {
+    const tokens = this.readVerifications();
+    let changed = false;
+    for (const [token, rec] of Object.entries(tokens)) {
+      if (rec.userId === userId) {
+        delete tokens[token];
+        changed = true;
+      }
+    }
+    if (changed) writeJson(this.verificationsPath(), tokens);
+  }
+
+  issueEmailVerification(userId: string): { token: string; expiresAt: number } {
+    this.clearVerificationsForUser(userId);
+    const tokens = this.readVerifications();
+    const token = randomToken();
+    const expiresAt = this.now() + VERIFICATION_TTL_MS;
+    tokens[token] = { userId, expiresAt };
+    writeJson(this.verificationsPath(), tokens);
+    this.updateUser(userId, { verificationSentAt: this.now() });
+    return { token, expiresAt };
+  }
+
+  latestVerificationToken(userId: string): string | null {
+    const now = this.now();
+    let best: { token: string; expiresAt: number } | null = null;
+    for (const [token, rec] of Object.entries(this.readVerifications())) {
+      if (rec.userId !== userId || rec.consumedAt || rec.expiresAt <= now) continue;
+      if (!best || rec.expiresAt > best.expiresAt) best = { token, expiresAt: rec.expiresAt };
+    }
+    return best?.token ?? null;
+  }
+
+  consumeEmailVerification(token: string): UserRecord | null {
+    const trimmed = token.trim();
+    if (!trimmed) return null;
+    const tokens = this.readVerifications();
+    const rec = tokens[trimmed];
+    if (!rec || rec.expiresAt <= this.now()) {
+      if (rec) {
+        delete tokens[trimmed];
+        writeJson(this.verificationsPath(), tokens);
+      }
+      return null;
+    }
+    const user = this.getUser(rec.userId);
+    if (!user) {
+      delete tokens[trimmed];
+      writeJson(this.verificationsPath(), tokens);
+      return null;
+    }
+    if (rec.consumedAt) {
+      return user.emailVerified ? user : null;
+    }
+    tokens[trimmed] = { ...rec, consumedAt: this.now() };
+    writeJson(this.verificationsPath(), tokens);
+    return this.updateUser(user.id, { emailVerified: true, emailVerifiedAt: this.now() });
   }
 
   private announcementsPath() {

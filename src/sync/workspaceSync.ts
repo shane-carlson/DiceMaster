@@ -46,7 +46,7 @@ export function scheduleWorkspaceSave() {
 }
 
 export function setTrackedPath(path: string) {
-    if (path === "/login" || path === "/signup" || path.startsWith("/admin")) return;
+    if (path === "/login" || path === "/signup" || path === "/verify" || path.startsWith("/admin")) return;
   lastPath = path;
   useAuthStore.getState().patchSession({ lastPath: path });
   scheduleWorkspaceSave();

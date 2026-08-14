@@ -54,23 +54,50 @@ function AuthScreen({
 }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const pendingEmail = useAuthStore((s) => s.pendingVerificationEmail);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await onSubmit({ email, password, displayName: displayName || email.split("@")[0] });
+      if (useAuthStore.getState().pendingVerificationEmail) {
+        setPassword("");
+        return;
+      }
       const next = params.get("next");
       const last = useAuthStore.getState().session.lastPath;
       navigate(next || last || "/workshop", { replace: true });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        setError(null);
+        return;
+      }
       setError(err instanceof ApiError ? err.message : "Could not sign in.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    const target = pendingEmail || email;
+    if (!target) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await useAuthStore.getState().resendVerification(target);
+      setNotice("If an account needs confirmation, we sent a new link.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not resend the email.");
     } finally {
       setBusy(false);
     }
@@ -88,6 +115,17 @@ function AuthScreen({
         <p className="kicker">Account</p>
         <h1>{title}</h1>
         <p className="lede">{lead}</p>
+        {pendingEmail && (
+          <div className="auth-notice" role="status">
+            <p>
+              Confirm <strong>{pendingEmail}</strong> before using vault features. Check your inbox
+              for a link from Ready Writer One, then return here to sign in.
+            </p>
+            <button className="btn btn-gold" type="button" disabled={busy} onClick={() => void resend()}>
+              {busy ? "Working…" : "Resend confirmation email"}
+            </button>
+          </div>
+        )}
         <form className="auth-form" onSubmit={(e) => void submit(e)}>
           {showName && (
             <label className="field">
@@ -121,6 +159,7 @@ function AuthScreen({
               required
             />
           </label>
+          {notice && <p className="form-ok">{notice}</p>}
           {error && <p className="form-error">{error}</p>}
           <button className="btn btn-gold" type="submit" disabled={busy}>
             {busy ? "Working…" : submitLabel}

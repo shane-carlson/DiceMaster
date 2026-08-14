@@ -8,7 +8,11 @@ export type PublicUser = {
   displayName: string;
   createdAt: number;
   role: UserRole;
+  emailVerified: boolean;
 };
+
+export const EMAIL_VERIFICATION_DAYS = 2;
+export const EMAIL_VERIFICATION_RESEND_MS = 60_000;
 
 export type AdminUser = PublicUser & {
   disabled: boolean;
