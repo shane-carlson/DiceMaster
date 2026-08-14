@@ -977,6 +977,30 @@ img {
   gap: 10px;
 }
 
+.host-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  background: var(--panel-2);
+}
+
+.host-exit::before {
+  content: "←";
+}
+
+.host-exit:hover {
+  color: var(--gold-2);
+  border-color: var(--gold-dim);
+}
+
 .user-links {
   display: flex;
   align-items: center;

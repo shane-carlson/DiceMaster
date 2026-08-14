@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Brand } from "../components/layout/Brand";
+import { HostExitLink } from "../components/layout/HostExitLink";
 import { UserLinks } from "../components/layout/UserLinks";
 import { HeroScene } from "../components/viewport/HeroScene";
 import { SET_TEMPLATES } from "../engine/templates";
@@ -18,6 +19,7 @@ export function Home() {
       <nav className="home-nav">
         <Brand />
         <div className="home-nav-actions">
+          <HostExitLink />
           <UserLinks gold />
           <Link to="/workshop" className="btn btn-gold">
             Enter the workshop
