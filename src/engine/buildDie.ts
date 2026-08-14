@@ -1,20 +1,18 @@
 import {
-  BufferAttribute,
   BufferGeometry,
   CylinderGeometry,
   Matrix4,
   Mesh,
-  SphereGeometry,
 } from "three";
-import { ADDITION, Brush, Evaluator, SUBTRACTION } from "three-bvh-csg";
 import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, type DieFace } from "./faces";
-import { createDieGeometry, uniqueVertices } from "./geometry";
+import { createDieGeometry } from "./geometry";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
 import { cutterPlacement, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
+import { carvePrintSolid } from "./printCarve";
 
 export interface PlacedGlyph {
   geometry: BufferGeometry;
@@ -41,6 +39,7 @@ export interface DieBuild {
   sizeMm: number;
   engraveMode: DieInstance["engraveMode"];
   carved: boolean;
+  bumperMm: number;
 }
 
 export function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, ox: number, oy: number): Matrix4 {
@@ -71,38 +70,6 @@ export function yieldToMain(): Promise<void> {
       setTimeout(resolve, 0);
     }
   });
-}
-
-/** Convex hulls have no UVs; ExtrudeGeometry does. CSG requires the same attrs. */
-function csgEvaluator(): Evaluator {
-  const evaluator = new Evaluator();
-  evaluator.useGroups = false;
-  evaluator.attributes = ["position", "normal"];
-  return evaluator;
-}
-
-function prepareCsgGeometry(geometry: BufferGeometry): BufferGeometry {
-  if (!geometry.getAttribute("normal")) geometry.computeVertexNormals();
-  if (geometry.getAttribute("uv")) geometry.deleteAttribute("uv");
-  return geometry;
-}
-
-function applyBumpers(body: BufferGeometry, size: number): BufferGeometry {
-  const verts = uniqueVertices(body);
-  if (verts.length === 0) return body;
-  const evaluator = csgEvaluator();
-  let current = new Brush(prepareCsgGeometry(body));
-  current.updateMatrixWorld();
-  for (const v of verts) {
-    const sg = new SphereGeometry(size, 12, 10);
-    sg.translate(v.x, v.y, v.z);
-    const brush = new Brush(prepareCsgGeometry(sg));
-    brush.updateMatrixWorld();
-    current = evaluator.evaluate(current, brush, ADDITION);
-  }
-  const geom = current.geometry.clone();
-  geom.computeVertexNormals();
-  return geom;
 }
 
 async function placedFromGlyph(
@@ -211,14 +178,7 @@ export async function buildDie(
   const sharp = createDieGeometry(die.type, die.sizeMm);
   const rawFaces = extractFaces(sharp, die.type);
   const faces = numberFaces(die.type, rawFaces, die.d10Style);
-  let body = sharp;
-  if (quality === "print" && die.bumpers) {
-    try {
-      body = applyBumpers(body, die.bumperSize);
-    } catch {
-      body = sharp;
-    }
-  }
+  const body = sharp;
   const glyphs: PlacedGlyph[] = [];
   const vertexLabels = usesVertexNumerals(die.type)
     ? tetraOppositeVertexLabels(faces)
@@ -294,6 +254,7 @@ export async function buildDie(
     sizeMm: die.sizeMm,
     engraveMode: die.engraveMode,
     carved: false,
+    bumperMm: quality === "print" && die.bumpers ? die.bumperSize : 0,
   };
 }
 
@@ -303,65 +264,15 @@ export async function bakeEngraving(
   onProgress?: (done: number, total: number) => void | Promise<void>,
 ): Promise<BufferGeometry> {
   const total = build.glyphs.length;
-  if (total === 0) {
+  if (total === 0 && build.bumperMm <= 0) {
     await onProgress?.(1, 1);
     return build.body.clone();
   }
-  const evaluator = csgEvaluator();
-  const op = mode === "emboss" ? ADDITION : SUBTRACTION;
-
-  const worldCutter = (glyph: PlacedGlyph) => {
-    const geom = prepareCsgGeometry((glyph.cutter ?? glyph.geometry).clone());
-    geom.applyMatrix4(glyph.cutterMatrix ?? glyph.matrix);
-    return geom;
-  };
-
-  const finish = (geom: BufferGeometry) => {
-    const pos = geom.getAttribute("position");
-    if (!pos || pos.count < 3) {
-      return build.body.clone();
-    }
-    const start = geom.drawRange.start;
-    const count =
-      Number.isFinite(geom.drawRange.count) && geom.drawRange.count !== Infinity
-        ? geom.drawRange.count
-        : pos.count;
-    if (count < 3) return build.body.clone();
-    if (start !== 0 || count !== pos.count) {
-      const trimmed = pos.array.slice(start * 3, (start + count) * 3);
-      geom.setAttribute("position", new BufferAttribute(new Float32Array(trimmed), 3));
-      geom.deleteAttribute("normal");
-      geom.deleteAttribute("uv");
-    }
-    geom.setIndex(null);
-    geom.clearGroups();
-    geom.setDrawRange(0, Infinity);
-    geom.computeVertexNormals();
-    return geom;
-  };
-
-  const body = new Brush(prepareCsgGeometry(build.body.clone()));
-  body.updateMatrixWorld();
-
   try {
-    let current = body;
-    await onProgress?.(0, total);
-    for (let i = 0; i < total; i++) {
-      const cutter = worldCutter(build.glyphs[i]);
-      if (cutter.getAttribute("position")) {
-        const tool = new Brush(prepareCsgGeometry(cutter));
-        tool.updateMatrixWorld();
-        current = evaluator.evaluate(current, tool, op);
-      } else {
-        cutter.dispose();
-      }
-      await onProgress?.(i + 1, total);
-      await yieldToMain();
-    }
-    return finish(current.geometry.clone());
-  } catch {
-    await onProgress?.(total, total);
-    return build.body.clone();
+    return await carvePrintSolid(build.body, build.glyphs, mode, build.bumperMm, onProgress);
+  } catch (err) {
+    await onProgress?.(Math.max(total, 1), Math.max(total, 1));
+    throw err;
   }
 }
 

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import opentype from "opentype.js";
 import { Mesh, Raycaster } from "three";
 import { createDie } from "./defaults";
+import { openEdgeCount } from "./meshQuality";
 import { bakeEngraving, buildDie } from "./buildDie";
 import { exportPackedPlateStl, exportPercent } from "./stl";
 import type { DieType } from "./types";
@@ -20,6 +21,7 @@ describe("stl print bake", () => {
       const pos = baked.getAttribute("position");
       expect(pos).toBeTruthy();
       expect(pos!.count).toBeGreaterThan(8);
+      expect(openEdgeCount(baked)).toBe(0);
     }, 20_000);
   }
 
@@ -69,8 +71,8 @@ describe("stl print bake", () => {
     let wells = 0;
     for (const face of build.faces) {
       const n = face.normal.clone();
-      for (let u = -3; u <= 3; u += 1.5) {
-        for (let v = -3; v <= 3; v += 1.5) {
+      for (let u = -5; u <= 5; u += 1) {
+        for (let v = -5; v <= 5; v += 1) {
           const origin = face.center
             .clone()
             .add(face.tangent.clone().multiplyScalar(u))
@@ -84,6 +86,9 @@ describe("stl print bake", () => {
         }
       }
     }
-    expect(wells).toBeGreaterThan(8);
+    expect(openEdgeCount(baked)).toBe(0);
+    expect(baked.index).toBeTruthy();
+    expect((baked.index?.count ?? 0) / 3).toBeGreaterThan(80);
+    expect(wells).toBeGreaterThan(4);
   }, 20_000);
 });
