@@ -1,7 +1,7 @@
 import { DIE_COLORS, DIE_LABELS, type FaceKind, type SizeFormatId } from "../../engine/types";
-import { SYMBOLS } from "../../engine/symbols";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
-import { makeGlyph } from "../../engine/defaults";
+import { makeEmblem } from "../../engine/defaults";
+import { SymbolSelect } from "./SymbolPicker";
 
 const KINDS: { id: FaceKind; label: string }[] = [
   { id: "number", label: "Number" },
@@ -286,18 +286,12 @@ export function InspectorPanel() {
           {face.primary.kind === "symbol" && (
             <div className="field">
               <label>Symbol</label>
-              <select
-                value={face.primary.symbolId ?? ""}
-                onChange={(e) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { symbolId: e.target.value })
+              <SymbolSelect
+                value={face.primary.symbolId ?? "star"}
+                onChange={(id) =>
+                  state.updateFaceGlyph(die.id, faceNo, "primary", { symbolId: id })
                 }
-              >
-                {SYMBOLS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
           {face.primary.kind === "logo" && (
@@ -367,30 +361,25 @@ export function InspectorPanel() {
             Copy placement to every face
           </button>
 
-          <h3>Corner emblem</h3>
+          <h3>Symbol or logo on this face</h3>
           <p className="help">
-            Park a crest where a number is not — a high-face dragon, a clan mark, a crit burst.
+            Sits beside the number. Scale and move it; it does not replace the inscription.
+            To swap the number for a symbol, use the tabs above.
           </p>
           {!face.emblem && (
             <button
               className="btn btn-small"
               onClick={() =>
-                state.updateFaceGlyph(die.id, faceNo, "emblem", {
-                  ...makeGlyph(""),
-                  kind: "symbol",
-                  symbolId: "dragon",
-                  scale: 0.45,
-                  offsetY: 0.72,
-                })
+                state.updateFaceGlyph(die.id, faceNo, "emblem", makeEmblem("symbol", "star"))
               }
             >
-              Add emblem
+              Add symbol
             </button>
           )}
           {face.emblem && (
             <>
               <div className="kind-tabs">
-                {KINDS.filter((k) => k.id !== "number").map((k) => (
+                {KINDS.filter((k) => k.id === "symbol" || k.id === "logo").map((k) => (
                   <button
                     key={k.id}
                     className={`chip ${face.emblem?.kind === k.id ? "active" : ""}`}
@@ -401,52 +390,44 @@ export function InspectorPanel() {
                 ))}
               </div>
               {face.emblem.kind === "symbol" && (
-                <select
-                  value={face.emblem.symbolId ?? "star"}
-                  onChange={(e) =>
-                    state.updateFaceGlyph(die.id, faceNo, "emblem", { symbolId: e.target.value })
-                  }
-                >
-                  {SYMBOLS.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="field">
+                  <label>Symbol</label>
+                  <SymbolSelect
+                    value={face.emblem.symbolId ?? "star"}
+                    onChange={(id) =>
+                      state.updateFaceGlyph(die.id, faceNo, "emblem", { symbolId: id })
+                    }
+                  />
+                </div>
               )}
               {face.emblem.kind === "logo" && (
-                <select
-                  value={face.emblem.logoId ?? ""}
-                  onChange={(e) =>
-                    state.updateFaceGlyph(die.id, faceNo, "emblem", { logoId: e.target.value })
-                  }
-                >
-                  {state.project.logos.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {face.emblem.kind === "text" && (
-                <input
-                  type="text"
-                  value={face.emblem.text}
-                  onChange={(e) =>
-                    state.updateFaceGlyph(die.id, faceNo, "emblem", { text: e.target.value })
-                  }
-                />
+                <div className="field">
+                  <label>Logo</label>
+                  <select
+                    value={face.emblem.logoId ?? ""}
+                    onChange={(e) =>
+                      state.updateFaceGlyph(die.id, faceNo, "emblem", { logoId: e.target.value })
+                    }
+                  >
+                    <option value="">Choose upload…</option>
+                    {state.project.logos.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
               <Slider
-                label="Emblem scale"
+                label="Size"
                 value={face.emblem.scale}
-                min={0.2}
-                max={1.4}
+                min={0.15}
+                max={1.6}
                 step={0.02}
                 onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { scale: n })}
               />
               <Slider
-                label="Emblem X"
+                label="Move X"
                 value={face.emblem.offsetX}
                 min={-1}
                 max={1}
@@ -454,18 +435,27 @@ export function InspectorPanel() {
                 onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { offsetX: n })}
               />
               <Slider
-                label="Emblem Y"
+                label="Move Y"
                 value={face.emblem.offsetY}
                 min={-1}
                 max={1}
                 step={0.01}
                 onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { offsetY: n })}
               />
+              <Slider
+                label="Rotation"
+                value={face.emblem.rotation}
+                min={-180}
+                max={180}
+                step={1}
+                suffix="°"
+                onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { rotation: n })}
+              />
               <button
                 className="btn btn-small"
                 onClick={() => state.updateFaceGlyph(die.id, faceNo, "emblem", null)}
               >
-                Remove emblem
+                Remove symbol
               </button>
             </>
           )}
@@ -474,12 +464,7 @@ export function InspectorPanel() {
           <button
             className="btn btn-small"
             onClick={() =>
-              state.applyEmblemToHighest(die.id, {
-                ...makeGlyph(""),
-                kind: "symbol",
-                symbolId: "dragon",
-                scale: 1,
-              })
+              state.applyEmblemToHighest(die.id, makeEmblem("symbol", "dragon"))
             }
           >
             Dragon on the highest face
@@ -488,12 +473,7 @@ export function InspectorPanel() {
             className="btn btn-small"
             style={{ marginTop: 6 }}
             onClick={() =>
-              state.applyEmblemToHighest(die.id, {
-                ...makeGlyph(""),
-                kind: "symbol",
-                symbolId: "spark",
-                scale: 1,
-              })
+              state.applyEmblemToHighest(die.id, makeEmblem("symbol", "spark"))
             }
           >
             Crit burst on the highest face

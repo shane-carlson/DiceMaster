@@ -1,9 +1,9 @@
-import { useRef, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/fonts";
 import { uid } from "../../engine/id";
 import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, SizeFormatId } from "../../engine/types";
-import { SYMBOLS } from "../../engine/symbols";
+import { symbolsByCategory } from "../../engine/symbols";
 import { useProjectStore } from "../../store/projectStore";
 
 const ADDABLE: { type: DieType; label: string }[] = [
@@ -34,6 +34,7 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
   const updateFaceGlyph = useProjectStore((s) => s.updateFaceGlyph);
   const fontRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
+  const [placeMode, setPlaceMode] = useState<"add" | "replace">("add");
 
   const onFont = async (file: File) => {
     const buf = await file.arrayBuffer();
@@ -157,8 +158,22 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
 
       <h2>Crests & logos</h2>
       <p className="help">
-        Drop a clan mark onto a face — especially the high face, or a blank corner emblem.
+        Select a face, then choose how a mark lands: beside the number, or in place of it.
       </p>
+      <div className="kind-tabs">
+        <button
+          className={`chip ${placeMode === "add" ? "active" : ""}`}
+          onClick={() => setPlaceMode("add")}
+        >
+          Add beside number
+        </button>
+        <button
+          className={`chip ${placeMode === "replace" ? "active" : ""}`}
+          onClick={() => setPlaceMode("replace")}
+        >
+          Replace number
+        </button>
+      </div>
       <button className="btn btn-small" onClick={() => logoRef.current?.click()}>
         Upload SVG or PNG
       </button>
@@ -179,10 +194,19 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
             className="btn btn-small"
             onClick={() => {
               if (!selectedDieId || selectedFaceIndex === null) return;
-              updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
-                kind: "logo",
-                logoId: logo.id,
-              });
+              if (placeMode === "add") {
+                updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", {
+                  kind: "logo",
+                  logoId: logo.id,
+                  text: "",
+                });
+              } else {
+                updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
+                  kind: "logo",
+                  logoId: logo.id,
+                  text: "",
+                });
+              }
             }}
           >
             {logo.name}
@@ -192,29 +216,42 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
 
       <h2>Symbol vault</h2>
       <div className="symbol-grid">
-        {SYMBOLS.map((s) => (
-          <button
-            key={s.id}
-            className="symbol-btn"
-            title={s.name}
-            onClick={() => {
-              if (!selectedDieId || selectedFaceIndex === null) return;
-              updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
-                kind: "symbol",
-                symbolId: s.id,
-                text: "",
-              });
-            }}
-          >
-            <svg viewBox={`0 0 ${s.viewBox} ${s.viewBox}`}>
-              <path d={s.path} />
-            </svg>
-          </button>
-        ))}
+        {symbolsByCategory().flatMap((group) => [
+          <div key={`cat-${group.category}`} className="symbol-cat">
+            {group.category}
+          </div>,
+          ...group.symbols.map((s) => (
+            <button
+              key={s.id}
+              className="symbol-btn"
+              title={s.name}
+              onClick={() => {
+                if (!selectedDieId || selectedFaceIndex === null) return;
+                if (placeMode === "add") {
+                  updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", {
+                    kind: "symbol",
+                    symbolId: s.id,
+                    text: "",
+                  });
+                } else {
+                  updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
+                    kind: "symbol",
+                    symbolId: s.id,
+                    text: "",
+                  });
+                }
+              }}
+            >
+              <svg viewBox={`0 0 ${s.viewBox} ${s.viewBox}`}>
+                <path d={s.path} fillRule="evenodd" />
+              </svg>
+            </button>
+          )),
+        ])}
       </div>
       <p className="help" style={{ marginTop: 8 }}>
-        Select a face, then tap a symbol. Use the inspector to park a crest in a corner instead of
-        replacing the number.
+        Add beside number keeps the inscription; use the inspector to resize and move the mark.
+        Replace number swaps the face for that symbol or logo.
       </p>
     </aside>
   );

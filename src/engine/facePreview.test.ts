@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { faceViewPose } from "./cameraFocus";
 import { extractFaces } from "./faces";
 import { previewFacesForSet } from "./facePreview";
-import { createDie } from "./defaults";
+import { createDie, makeEmblem } from "./defaults";
 import { createDieGeometry } from "./geometry";
 import type { DieType } from "./types";
 
@@ -67,6 +67,18 @@ describe("face editor outlines", () => {
     for (const face of faces) {
       expect(face.polygon.length).toBe(3);
     }
+  });
+
+  it("draws a symbol beside the number instead of replacing it", () => {
+    const die = createDie("d6", "standard");
+    die.faces[0].emblem = makeEmblem("symbol", "shield");
+    const face = previewFacesForSet([die]).find((f) => f.faceIndex === 0);
+    expect(face).toBeTruthy();
+    expect(face!.marks.some((m) => m.kind === "text" && m.text === "1")).toBe(true);
+    const emblem = face!.marks.find((m) => m.kind === "symbol");
+    expect(emblem?.symbolId).toBe("shield");
+    expect(emblem?.scale).toBe(0.42);
+    expect(emblem?.y).not.toBe(0);
   });
 });
 

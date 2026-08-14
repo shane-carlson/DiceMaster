@@ -2,13 +2,16 @@ import { useMemo, useRef, useState } from "react";
 import { arrayBufferToBase64, fontsByGroup } from "../../engine/fonts";
 import { previewFacesForSet, type FacePreview } from "../../engine/facePreview";
 import { numeralInk } from "../../engine/ink";
+import { symbolById } from "../../engine/symbols";
 import type { FaceKind } from "../../engine/types";
+import { makeEmblem } from "../../engine/defaults";
 import { useProjectStore } from "../../store/projectStore";
 
-const TOOLS: { id: FaceKind | "copy" | "copyAll"; label: string }[] = [
+const TOOLS: { id: FaceKind | "copy" | "copyAll" | "addMark"; label: string }[] = [
   { id: "number", label: "Number" },
-  { id: "logo", label: "Logo" },
-  { id: "symbol", label: "Symbol" },
+  { id: "logo", label: "Replace with logo" },
+  { id: "symbol", label: "Replace with symbol" },
+  { id: "addMark", label: "Add symbol" },
   { id: "blank", label: "Empty" },
   { id: "copy", label: "Copy" },
   { id: "copyAll", label: "Copy to all" },
@@ -56,20 +59,31 @@ function FaceCell({
             strokeWidth={span * 0.03}
             strokeLinejoin="round"
           />
-          {face.marks.map((m, i) => (
-            <g key={i} transform={`translate(${m.x} ${m.y}) rotate(${-m.rotation})`}>
-              <text
-                transform="scale(1,-1)"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={fontSize}
-                fill={numeralInk(face.dieColor)}
-                fontWeight={700}
-              >
-                {m.text}
-              </text>
-            </g>
-          ))}
+          {face.marks.map((m, i) => {
+            const ink = numeralInk(face.dieColor, m.kind === "symbol" || m.kind === "logo" ? "emblem" : "primary");
+            const def = m.symbolId ? symbolById(m.symbolId) : null;
+            const size = fontSize * Math.max(m.scale, 0.25);
+            return (
+              <g key={i} transform={`translate(${m.x} ${m.y}) rotate(${-m.rotation})`}>
+                {def ? (
+                  <g transform={`translate(${-size / 2} ${size / 2}) scale(${size / def.viewBox} ${-size / def.viewBox})`}>
+                    <path d={def.path} fill={ink} fillRule="evenodd" />
+                  </g>
+                ) : (
+                  <text
+                    transform="scale(1,-1)"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={size}
+                    fill={ink}
+                    fontWeight={700}
+                  >
+                    {m.text}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </g>
       </svg>
       <span className="face-cell-label">
@@ -87,6 +101,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
   const setCustomFont = useProjectStore((s) => s.setCustomFont);
   const setGlobalFontScale = useProjectStore((s) => s.setGlobalFontScale);
   const setFaceKind = useProjectStore((s) => s.setFaceKind);
+  const updateFaceGlyph = useProjectStore((s) => s.updateFaceGlyph);
   const copyFaceToAll = useProjectStore((s) => s.copyFaceToAll);
   const focusDieFace = useProjectStore((s) => s.focusDieFace);
   const fontRef = useRef<HTMLInputElement>(null);
@@ -108,6 +123,10 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
     }
     if (id === "copyAll") {
       copyFaceToAll(selectedDieId, selectedFaceIndex);
+      return;
+    }
+    if (id === "addMark") {
+      updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", makeEmblem("symbol", "star"));
       return;
     }
     setFaceKind(selectedDieId, selectedFaceIndex, "primary", id);
@@ -165,8 +184,9 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
         />
       </div>
       <p className="help">
-        Size is set-wide. D4 tetrahedron faces show three numbers, one at each vertex — read the
-        point that lands up.
+        Size is set-wide. Use Add symbol to park a crest beside the number. Replace with
+        symbol or logo swaps the number out. D4 tetrahedron faces show three numbers, one at
+        each vertex — read the point that lands up.
       </p>
 
       <div className="face-editor-tools">

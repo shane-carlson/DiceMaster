@@ -11,6 +11,7 @@ import {
 import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import type { Font } from "opentype.js";
 import { symbolById } from "./symbols";
+import { parseSvgPath } from "./svgPath";
 import type { GlyphSettings, LogoAsset } from "./types";
 
 export function shapesFromFont(font: Font, text: string, size: number): Shape[] {
@@ -53,39 +54,60 @@ export function shapesFromFont(font: Font, text: string, size: number): Shape[] 
   return shapePath.toShapes(true);
 }
 
-export function shapesFromSvgPath(d: string, viewBox = 100): Shape[] {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBox} ${viewBox}"><path d="${d}" fill="black"/></svg>`;
-  const loader = new SVGLoader();
-  const data = loader.parse(svg);
+function ringsFromShapePath(shapePath: ShapePath, divisions = 24): Vector2[][] {
+  const rings: Vector2[][] = [];
+  for (const sub of shapePath.subPaths) {
+    const ring = uniqueRing(sub.getPoints(divisions));
+    if (ring.length >= 3) rings.push(ring);
+  }
+  return rings;
+}
+
+function shapesFromNestedRings(
+  nested: { outer: Vector2[]; holes: Vector2[][] }[],
+  mapPoint: (p: Vector2) => Vector2 = (p) => p.clone(),
+): Shape[] {
   const shapes: Shape[] = [];
-  for (const p of data.paths) {
-    shapes.push(...SVGLoader.createShapes(p));
-  }
-  for (const shape of shapes) {
-    const pts = shape.getPoints();
-    shape.curves = [];
-    if (pts.length === 0) continue;
-    const first = pts[0];
-    shape.moveTo(first.x, viewBox - first.y);
-    for (let i = 1; i < pts.length; i++) {
-      shape.lineTo(pts[i].x, viewBox - pts[i].y);
+  for (const group of nested) {
+    const outer = group.outer.map(mapPoint);
+    if (outer.length < 3) continue;
+    if (ShapeUtils.isClockWise(outer)) outer.reverse();
+    const shape = new Shape();
+    ringToPath(shape, outer);
+    for (const hole of group.holes) {
+      const pts = hole.map(mapPoint);
+      if (pts.length < 3) continue;
+      if (!ShapeUtils.isClockWise(pts)) pts.reverse();
+      const path = new Path();
+      ringToPath(path, pts);
+      shape.holes.push(path);
     }
-    shape.closePath();
+    shapes.push(shape);
   }
-  return shapes.filter((s) => s.getPoints().length > 2);
+  return shapes;
+}
+
+/** Even-odd SVG paths: extra closed subpaths become counters, not filled blobs. */
+export function shapesFromSvgPath(d: string, viewBox = 100): Shape[] {
+  const nested = nestFillRings(ringsFromShapePath(parseSvgPath(d)));
+  return shapesFromNestedRings(nested, (p) => new Vector2(p.x, viewBox - p.y));
 }
 
 function shapesFromSvgMarkup(markup: string): Shape[] {
   const wrapped = markup.includes("<svg")
     ? markup
     : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${markup}</svg>`;
+  if (typeof DOMParser === "undefined") {
+    const ds = [...wrapped.matchAll(/\bd="([^"]+)"/g)].map((m) => m[1]);
+    return ds.flatMap((d) => shapesFromSvgPath(d, 100));
+  }
   const loader = new SVGLoader();
   const data = loader.parse(wrapped);
-  const shapes: Shape[] = [];
+  const rings: Vector2[][] = [];
   for (const p of data.paths) {
-    shapes.push(...SVGLoader.createShapes(p));
+    rings.push(...ringsFromShapePath(p));
   }
-  return shapes;
+  return shapesFromNestedRings(nestFillRings(rings));
 }
 
 function luminance(r: number, g: number, b: number): number {
@@ -341,6 +363,30 @@ function ringArea(pts: Vector2[]): number {
   return area / 2;
 }
 
+function ringCentroid(pts: Vector2[]): Vector2 {
+  let x = 0;
+  let y = 0;
+  let twiceArea = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    const cross = p.x * q.y - q.x * p.y;
+    twiceArea += cross;
+    x += (p.x + q.x) * cross;
+    y += (p.y + q.y) * cross;
+  }
+  if (Math.abs(twiceArea) < 1e-8) {
+    let sx = 0;
+    let sy = 0;
+    for (const p of pts) {
+      sx += p.x;
+      sy += p.y;
+    }
+    return new Vector2(sx / pts.length, sy / pts.length);
+  }
+  return new Vector2(x / (3 * twiceArea), y / (3 * twiceArea));
+}
+
 function pointInRing(x: number, y: number, ring: Vector2[]): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -367,22 +413,46 @@ function collectRings(shapes: Shape[], divisions: number): Vector2[][] {
   return rings;
 }
 
-/** Nest smaller contours inside larger ones so counters (4, 6, 8, 9, 0) stay open. */
+/** Even-odd nest: odd-depth rings stay open so counters are not filled. */
 export function nestFillRings(rings: Vector2[][]): { outer: Vector2[]; holes: Vector2[][] }[] {
   const items = rings
     .filter((pts) => pts.length >= 3)
-    .map((pts) => ({ pts, area: Math.abs(ringArea(pts)) }))
+    .map((pts) => ({ pts, area: Math.abs(ringArea(pts)), sample: ringCentroid(pts) }))
     .sort((a, b) => b.area - a.area);
-  const groups: { outer: Vector2[]; holes: Vector2[][] }[] = [];
+
+  type Group = { outer: Vector2[]; holes: Vector2[][] };
+  const groups: Group[] = [];
+  const fills: { pts: Vector2[]; area: number; group: Group }[] = [];
+
   for (const item of items) {
-    const sample = item.pts[0];
-    let parent: { outer: Vector2[]; holes: Vector2[][] } | null = null;
-    for (const group of groups) {
-      if (pointInRing(sample.x, sample.y, group.outer)) parent = group;
+    const depth = items.filter(
+      (other) =>
+        other !== item &&
+        other.area > item.area + 1e-8 &&
+        pointInRing(item.sample.x, item.sample.y, other.pts),
+    ).length;
+    if (depth % 2 === 0) {
+      const group: Group = { outer: item.pts, holes: [] };
+      groups.push(group);
+      fills.push({ pts: item.pts, area: item.area, group });
+      continue;
+    }
+    let parent: Group | null = null;
+    let parentArea = Infinity;
+    for (const fill of fills) {
+      if (fill.area > item.area && fill.area < parentArea && pointInRing(item.sample.x, item.sample.y, fill.pts)) {
+        parent = fill.group;
+        parentArea = fill.area;
+      }
     }
     if (parent) parent.holes.push(item.pts);
-    else groups.push({ outer: item.pts, holes: [] });
+    else {
+      const group: Group = { outer: item.pts, holes: [] };
+      groups.push(group);
+      fills.push({ pts: item.pts, area: item.area, group });
+    }
   }
+
   for (const group of groups) {
     if (ShapeUtils.isClockWise(group.outer)) group.outer.reverse();
     for (const hole of group.holes) {

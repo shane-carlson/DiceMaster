@@ -243,7 +243,7 @@ export async function buildDie(
         die,
         font,
         logos,
-        globalScale * 0.55,
+        globalScale,
         "emblem",
         undefined,
         quality,

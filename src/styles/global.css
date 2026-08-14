@@ -568,6 +568,19 @@ img {
   gap: 6px;
 }
 
+.symbol-cat {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.symbol-cat:first-child {
+  margin-top: 0;
+}
+
 .symbol-btn {
   aspect-ratio: 1;
   border-radius: 10px;
@@ -587,6 +600,10 @@ img {
   width: 70%;
   height: 70%;
   fill: var(--parchment);
+}
+
+.symbol-btn svg path {
+  fill-rule: evenodd;
 }
 
 .logo-list {

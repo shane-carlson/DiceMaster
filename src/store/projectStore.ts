@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createDie, ensureCarveDepth, ensureFaceCount, makeGlyph, rescaleDie } from "../engine/defaults";
+import { createDie, ensureCarveDepth, ensureFaceCount, makeEmblem, rescaleDie } from "../engine/defaults";
 import { uid } from "../engine/id";
 import { loadLocal, saveLocal } from "../engine/projectIO";
 import { diceFromTemplate, templateById } from "../engine/templates";
@@ -261,12 +261,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
             if (i !== faceIndex) return f;
             if (which === "emblem") {
               if (patch === null) return { ...f, emblem: null };
-              const base = f.emblem ?? {
-                ...makeGlyph(""),
-                kind: "symbol" as const,
-                scale: 0.55,
-                offsetY: 0.65,
-              };
+              const base = f.emblem ?? makeEmblem("symbol", "star");
               return { ...f, emblem: { ...base, ...patch } };
             }
             return { ...f, primary: { ...f.primary, ...patch } };
@@ -287,15 +282,17 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
             if (i !== faceIndex) return f;
             if (which === "emblem") {
               if (kind === "blank") return { ...f, emblem: null };
-              const base = f.emblem ?? {
-                ...makeGlyph(""),
-                kind,
-                scale: 0.5,
-                offsetY: 0.7,
-              };
+              const base = f.emblem ?? makeEmblem(kind === "logo" ? "logo" : "symbol", kind === "logo" ? "" : "star");
               return { ...f, emblem: { ...base, kind } };
             }
-            return { ...f, primary: { ...f.primary, kind } };
+            return {
+              ...f,
+              primary: {
+                ...f.primary,
+                kind,
+                symbolId: kind === "symbol" ? (f.primary.symbolId ?? "star") : f.primary.symbolId,
+              },
+            };
           });
           return { ...d, faces };
         }),
@@ -360,7 +357,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
             }
           });
           const faces = d.faces.map((f, i) =>
-            i === best ? { ...f, primary: { ...f.primary, ...emblem } } : f,
+            i === best ? { ...f, emblem } : f,
           );
           return { ...d, faces };
         }),

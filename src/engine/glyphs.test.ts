@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Path, Shape } from "three";
-import { extrudeShapes, letterDecalGeometry, underscoreBar } from "./glyphs";
+import { Path, Shape, type BufferGeometry } from "three";
+import { extrudeShapes, letterDecalGeometry, shapesFromSvgPath, underscoreBar } from "./glyphs";
+import { symbolById } from "./symbols";
 import { DEFAULT_DEPTH } from "./sizes";
 
 describe("6/9 underscore", () => {
@@ -141,4 +142,87 @@ describe("preview letter decals", () => {
     expect(covers(0, 0)).toBe(false);
     expect(covers(3, 0)).toBe(true);
   });
+});
+
+function geometryCoversXY(geom: BufferGeometry, x: number, y: number): boolean {
+  const pos = geom.getAttribute("position");
+  for (let i = 0; i < pos.count; i += 3) {
+    const ax = pos.getX(i);
+    const ay = pos.getY(i);
+    const bx = pos.getX(i + 1);
+    const by = pos.getY(i + 1);
+    const cx = pos.getX(i + 2);
+    const cy = pos.getY(i + 2);
+    const v0x = cx - ax;
+    const v0y = cy - ay;
+    const v1x = bx - ax;
+    const v1y = by - ay;
+    const v2x = x - ax;
+    const v2y = y - ay;
+    const dot00 = v0x * v0x + v0y * v0y;
+    const dot01 = v0x * v1x + v0y * v1y;
+    const dot02 = v0x * v2x + v0y * v2y;
+    const dot11 = v1x * v1x + v1y * v1y;
+    const dot12 = v1x * v2x + v1y * v2y;
+    const inv = 1 / (dot00 * dot11 - dot01 * dot01);
+    const u = (dot11 * dot02 - dot01 * dot12) * inv;
+    const v = (dot00 * dot12 - dot01 * dot02) * inv;
+    if (u >= -1e-6 && v >= -1e-6 && u + v <= 1 + 1e-6) return true;
+  }
+  return false;
+}
+
+describe("symbol counters stay open in preview", () => {
+  for (const id of ["diamond", "shield", "eye", "potion", "scroll", "eclipse"]) {
+    it(`does not fill the ${id} counter with the symbol body`, () => {
+      const def = symbolById(id);
+      expect(def).toBeTruthy();
+      const shapes = shapesFromSvgPath(def!.path, def!.viewBox);
+      const withHole = shapes.find((s) => s.holes.length > 0);
+      expect(withHole).toBeTruthy();
+      const geom = letterDecalGeometry(shapes, 0.12)!;
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      const visit = (p: { x: number; y: number }) => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      };
+      for (const shape of shapes) {
+        shape.getPoints(16).forEach(visit);
+        for (const hole of shape.holes) hole.getPoints(16).forEach(visit);
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      const holePts = withHole!.holes[0].getPoints(20);
+      let hx = 0;
+      let hy = 0;
+      for (const p of holePts) {
+        hx += p.x;
+        hy += p.y;
+      }
+      hx /= holePts.length;
+      hy /= holePts.length;
+      expect(geometryCoversXY(geom, hx - cx, hy - cy)).toBe(false);
+
+      const outer = withHole!.getPoints(24);
+      let best = outer[0];
+      let bestD = -1;
+      for (const p of outer) {
+        const d = (p.x - hx) ** 2 + (p.y - hy) ** 2;
+        if (d > bestD) {
+          bestD = d;
+          best = p;
+        }
+      }
+      const mx = hx + 0.92 * (best.x - hx);
+      const my = hy + 0.92 * (best.y - hy);
+      expect(geometryCoversXY(geom, mx - cx, my - cy)).toBe(true);
+    });
+  }
 });

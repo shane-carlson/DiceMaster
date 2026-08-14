@@ -36,6 +36,21 @@ export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
   }
 }
 
+export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
+  return {
+    kind,
+    text: "",
+    symbolId: kind === "symbol" ? id : null,
+    logoId: kind === "logo" ? id : null,
+    offsetX: 0,
+    offsetY: 0.58,
+    rotation: 0,
+    scale: 0.42,
+    depth: null,
+    underscore: false,
+  };
+}
+
 export function makeGlyph(text: string): GlyphSettings {
   const confused = text === "6" || text === "9";
   return {
