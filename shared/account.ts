@@ -9,6 +9,8 @@ export type PublicUser = {
   createdAt: number;
   role: UserRole;
   emailVerified: boolean;
+  hasPassword: boolean;
+  googleLinked: boolean;
 };
 
 export const EMAIL_VERIFICATION_DAYS = 2;

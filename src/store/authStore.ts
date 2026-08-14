@@ -20,6 +20,7 @@ type AuthState = {
   bootstrap: () => Promise<void>;
   signup: (input: { email: string; password: string; displayName: string }) => Promise<void>;
   login: (input: { email: string; password: string }) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email?: string) => Promise<void>;
@@ -140,6 +141,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       throw err;
     }
+  },
+
+  loginWithGoogle: async (credential) => {
+    const payload = await api.googleSignIn({ credential, project: adoptGuestProject() });
+    set({
+      status: "signed-in",
+      user: payload.user,
+      error: null,
+      saveStatus: "saved",
+      pendingVerificationEmail: null,
+    });
+    get().applyWorkspace(payload.workspace, true);
   },
 
   verifyEmail: async (token) => {

@@ -9,6 +9,8 @@ import { SYMBOL_GROUPS, SYMBOLS } from "../engine/symbols";
 import { useAuthStore } from "../store/authStore";
 import { useCatalogStore } from "../store/catalogStore";
 import { InfoTip } from "../components/ui/InfoTip";
+import { PasswordStrength } from "../components/auth/PasswordStrength";
+import { PASSWORD_HINT, isPasswordAcceptable } from "../../shared/password";
 
 type Tab = "users" | "banners" | "fonts" | "symbols";
 
@@ -144,10 +146,17 @@ function UsersTab({ onError }: { onError: (msg: string | null) => void }) {
         <label className="field">
           <span>
             Password
-            <InfoTip text="Temporary password. At least 8 characters. They can change it later." />
+            <InfoTip text={`Temporary password. ${PASSWORD_HINT}`} />
           </span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={12}
+            required
+          />
         </label>
+        <PasswordStrength password={password} />
         <label className="field">
           <span>
             Role
@@ -189,8 +198,14 @@ function UsersTab({ onError }: { onError: (msg: string | null) => void }) {
               <button
                 className="btn btn-small"
                 onClick={() => {
-                  const next = window.prompt("New password (8+ characters)", "");
-                  if (next) void patch(u.id, { password: next });
+                  const next = window.prompt("New password (12+ characters, mixed case, number, symbol)", "");
+                  if (next) {
+                    if (!isPasswordAcceptable(next)) {
+                      onError("That password is too weak. Use 12+ characters with mixed case, a number, and a symbol.");
+                      return;
+                    }
+                    void patch(u.id, { password: next });
+                  }
                 }}
               >
                 Password

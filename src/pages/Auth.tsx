@@ -4,6 +4,13 @@ import { Brand } from "../components/layout/Brand";
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import { InfoTip } from "../components/ui/InfoTip";
+import { GoogleSignIn } from "../components/auth/GoogleSignIn";
+import {
+  canSubmitNewPassword,
+  PasswordStrength,
+  passwordsMatch,
+} from "../components/auth/PasswordStrength";
+import { PASSWORD_HINT, passwordIssues } from "../../shared/password";
 
 export function Login() {
   return (
@@ -59,30 +66,61 @@ function AuthScreen({
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const afterAuth = () => {
+    if (useAuthStore.getState().pendingVerificationEmail) {
+      setPassword("");
+      setConfirm("");
+      return;
+    }
+    const next = params.get("next");
+    const last = useAuthStore.getState().session.lastPath;
+    navigate(next || last || "/workshop", { replace: true });
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (showName) {
+      if (!passwordsMatch(password, confirm)) {
+        setError("The two passwords do not match.");
+        return;
+      }
+      const issues = passwordIssues(password);
+      if (issues.length) {
+        setError(issues[0]!);
+        return;
+      }
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       await onSubmit({ email, password, displayName: displayName || email.split("@")[0] });
-      if (useAuthStore.getState().pendingVerificationEmail) {
-        setPassword("");
-        return;
-      }
-      const next = params.get("next");
-      const last = useAuthStore.getState().session.lastPath;
-      navigate(next || last || "/workshop", { replace: true });
+      afterAuth();
     } catch (err) {
       if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
         setError(null);
         return;
       }
       setError(err instanceof ApiError ? err.message : "Could not sign in.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const google = async (credential: string) => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await useAuthStore.getState().loginWithGoogle(credential);
+      afterAuth();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Google sign-in failed.");
     } finally {
       setBusy(false);
     }
@@ -103,6 +141,8 @@ function AuthScreen({
       setBusy(false);
     }
   };
+
+  const signupReady = !showName || canSubmitNewPassword(password, confirm);
 
   return (
     <div className="home auth-page">
@@ -158,29 +198,49 @@ function AuthScreen({
           <label className="field">
             <span>
               Password
-              <InfoTip
-                text={
-                  showName
-                    ? "At least 8 characters. You will need this each time you return to the forge."
-                    : "The password for this vault account."
-                }
-              />
+              <InfoTip text={showName ? PASSWORD_HINT : "The password for this vault account."} />
             </span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={showName ? "new-password" : "current-password"}
-              minLength={8}
+              minLength={showName ? 12 : 1}
               required
             />
           </label>
+          {showName && (
+            <>
+              <PasswordStrength password={password} />
+              <label className="field">
+                <span>
+                  Confirm password
+                  <InfoTip text="Retype the same password so a mistype does not lock the vault." />
+                </span>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={12}
+                  required
+                />
+              </label>
+              {confirm.length > 0 && !passwordsMatch(password, confirm) && (
+                <p className="form-error">The two passwords do not match.</p>
+              )}
+            </>
+          )}
           {notice && <p className="form-ok">{notice}</p>}
           {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-gold" type="submit" disabled={busy}>
+          <button className="btn btn-gold" type="submit" disabled={busy || !signupReady}>
             {busy ? "Working…" : submitLabel}
           </button>
         </form>
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+        <GoogleSignIn onCredential={(credential) => void google(credential)} disabled={busy} />
         <p className="help">{alt}</p>
       </section>
     </div>

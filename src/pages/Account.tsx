@@ -9,6 +9,8 @@ import { useAuthStore } from "../store/authStore";
 import { useProjectStore } from "../store/projectStore";
 import { openSavedSet, saveCurrentSet, saveFontAsset, saveLogoAsset } from "../sync/workspaceSync";
 import { InfoTip } from "../components/ui/InfoTip";
+import { PasswordStrength, passwordsMatch } from "../components/auth/PasswordStrength";
+import { PASSWORD_HINT, passwordIssues } from "../../shared/password";
 
 export function Account() {
   const navigate = useNavigate();
@@ -25,6 +27,7 @@ export function Account() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sets, setSets] = useState<SavedSetSummary[]>([]);
@@ -61,12 +64,28 @@ export function Account() {
     setError(null);
     setMessage(null);
     try {
+      if (password) {
+        if (!passwordsMatch(password, confirm)) {
+          setError("The two passwords do not match.");
+          return;
+        }
+        const issues = passwordIssues(password, "New password");
+        if (issues.length) {
+          setError(issues[0]!);
+          return;
+        }
+        if (user?.hasPassword && !currentPassword) {
+          setError("Enter your current password to change it.");
+          return;
+        }
+      }
       await updateProfile({
         displayName,
         email,
         ...(password ? { password, currentPassword } : {}),
       });
       setPassword("");
+      setConfirm("");
       setCurrentPassword("");
       setMessage("Profile saved.");
     } catch (err) {
@@ -190,7 +209,13 @@ export function Account() {
             <label className="field">
               <span>
                 Current password
-                <InfoTip text="Required only when you set a new password below." />
+                <InfoTip
+                  text={
+                    user?.hasPassword
+                      ? "Required only when you set a new password below."
+                      : "Not needed if you signed in with Google and have not set a password yet."
+                  }
+                />
               </span>
               <input
                 type="password"
@@ -202,16 +227,37 @@ export function Account() {
             <label className="field">
               <span>
                 New password
-                <InfoTip text="Leave blank to keep your current password. Must be at least 8 characters." />
+                <InfoTip text={`Leave blank to keep your current password. ${PASSWORD_HINT}`} />
               </span>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
               />
             </label>
+            {password.length > 0 && (
+              <>
+                <PasswordStrength password={password} />
+                <label className="field">
+                  <span>
+                    Confirm new password
+                    <InfoTip text="Retype the new password to confirm it." />
+                  </span>
+                  <input
+                    type="password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={12}
+                  />
+                </label>
+                {confirm.length > 0 && !passwordsMatch(password, confirm) && (
+                  <p className="form-error">The two passwords do not match.</p>
+                )}
+              </>
+            )}
             {error && <p className="form-error">{error}</p>}
             {message && <p className="form-ok">{message}</p>}
             <button className="btn btn-gold" type="submit">

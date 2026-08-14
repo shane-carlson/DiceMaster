@@ -33,7 +33,7 @@ describe("account API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        password: "obsidian8",
+        password: "Obsidian#184",
         displayName: "Raven",
         project: {
           version: 1,
@@ -96,7 +96,7 @@ describe("account API", () => {
     const login = await app.request("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "forge@example.com", password: "obsidian8" }),
+      body: JSON.stringify({ email: "forge@example.com", password: "Obsidian#184" }),
     });
     expect(login.status).toBe(403);
     const body = await login.json();
@@ -158,7 +158,7 @@ describe("account API", () => {
     const ok = await app.request("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "forge@example.com", password: "obsidian8" }),
+      body: JSON.stringify({ email: "forge@example.com", password: "Obsidian#184" }),
     });
     expect(ok.status).toBe(200);
   });
@@ -176,14 +176,14 @@ describe("account API", () => {
     const pw = await app.request("/api/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", cookie },
-      body: JSON.stringify({ currentPassword: "obsidian8", password: "moonstone9" }),
+      body: JSON.stringify({ currentPassword: "Obsidian#184", password: "Moonstone#9x" }),
     });
     expect(pw.status).toBe(200);
 
     const login = await app.request("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "forge@example.com", password: "moonstone9" }),
+      body: JSON.stringify({ email: "forge@example.com", password: "Moonstone#9x" }),
     });
     expect(login.status).toBe(200);
   });
@@ -274,6 +274,109 @@ describe("account API", () => {
     const me = await app.request("/api/me", { headers: { cookie } });
     expect(me.status).toBe(401);
   });
+
+  it("rejects a weak signup password", async () => {
+    const res = await app.request("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "weak@example.com",
+        password: "obsidian8",
+        displayName: "Weak",
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/12/i);
+  });
+
+  it("reports Google sign-in as off until a client id is set", async () => {
+    const res = await app.request("/api/auth/google/config");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ enabled: false, clientId: null });
+    const post = await app.request("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: "fake" }),
+    });
+    expect(post.status).toBe(503);
+  });
+});
+
+describe("Google sign-in", () => {
+  let dir: string;
+  let vault: FileVault;
+  let app: ReturnType<typeof createApp>;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "dm-google-"));
+    vault = new FileVault(dir);
+    app = createApp(vault, {
+      googleClientId: "test-google-client.apps.googleusercontent.com",
+      verifyGoogleIdToken: async () => ({
+        sub: "google-sub-1",
+        email: "raven@gmail.com",
+        emailVerified: true,
+        name: "Raven",
+      }),
+    });
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("creates a verified Google account and skips a password", async () => {
+    const res = await app.request("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        credential: "id-token",
+        project: {
+          version: 1,
+          name: "Guest Hoard",
+          fontId: "oswald",
+          globalDepth: 0.77,
+          globalFontScale: 1,
+          dice: [],
+          logos: [],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user.email).toBe("raven@gmail.com");
+    expect(body.user.emailVerified).toBe(true);
+    expect(body.user.hasPassword).toBe(false);
+    expect(body.user.googleLinked).toBe(true);
+    expect(body.workspace.project.name).toBe("Guest Hoard");
+    const cookie = cookieFrom(res);
+    expect(cookie.startsWith("dm_session=")).toBe(true);
+    const me = await app.request("/api/me", { headers: { cookie } });
+    expect(me.status).toBe(200);
+  });
+
+  it("links Google to an existing email account", async () => {
+    const signed = await app.request("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "raven@gmail.com",
+        password: "Obsidian#184",
+        displayName: "Raven",
+      }),
+    });
+    expect(signed.status).toBe(201);
+    const res = await app.request("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: "id-token" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user.hasPassword).toBe(true);
+    expect(body.user.googleLinked).toBe(true);
+    expect(body.user.emailVerified).toBe(true);
+  });
 });
 
 describe("admin console API", () => {
@@ -311,7 +414,7 @@ describe("admin console API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: "player@example.com",
-        password: "obsidian8",
+        password: "Obsidian#184",
         displayName: "Player",
       }),
     });
@@ -330,7 +433,7 @@ describe("admin console API", () => {
     const notAdmin = await app.request("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "player@example.com", password: "obsidian8" }),
+      body: JSON.stringify({ email: "player@example.com", password: "Obsidian#184" }),
     });
     expect(notAdmin.status).toBe(403);
     expect((await notAdmin.json()).error).toMatch(/administrator/i);
@@ -343,7 +446,7 @@ describe("admin console API", () => {
       headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({
         email: "smith@example.com",
-        password: "anvilhead",
+        password: "AnvilHead#12",
         displayName: "Smith",
         role: "user",
       }),
@@ -359,7 +462,7 @@ describe("admin console API", () => {
     const login = await app.request("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "smith@example.com", password: "anvilhead" }),
+      body: JSON.stringify({ email: "smith@example.com", password: "AnvilHead#12" }),
     });
     expect(login.status).toBe(403);
   });

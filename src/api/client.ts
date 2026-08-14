@@ -64,6 +64,9 @@ export const api = {
     request<SignupPayload>("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { email: string; password: string; project?: Project }) =>
     request<AuthPayload>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  googleConfig: () => request<{ enabled: boolean; clientId: string | null }>("/api/auth/google/config"),
+  googleSignIn: (body: { credential: string; project?: Project }) =>
+    request<AuthPayload>("/api/auth/google", { method: "POST", body: JSON.stringify(body) }),
   verifyEmail: (token: string) =>
     request<AuthPayload>("/api/auth/verify", { method: "POST", body: JSON.stringify({ token }) }),
   resendVerification: (email: string) =>
