@@ -1,4 +1,4 @@
-import { Component, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { ACESFilmicToneMapping, BufferGeometry, Vector3 } from "three";
@@ -137,6 +137,7 @@ function FocusOnDie({
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const focusGeneration = useProjectStore((s) => s.focusGeneration);
   const viewResetGeneration = useProjectStore((s) => s.viewResetGeneration);
+  const previewMode = useProjectStore((s) => s.previewMode);
   const latest = useRef({
     dice,
     spacing,
@@ -148,6 +149,7 @@ function FocusOnDie({
     cameraZ,
     viewResetGeneration,
     focusGeneration,
+    previewMode,
   });
   latest.current = {
     dice,
@@ -160,20 +162,26 @@ function FocusOnDie({
     cameraZ,
     viewResetGeneration,
     focusGeneration,
+    previewMode,
   };
   const anim = useRef<{ from: ViewPose; to: ViewPose; started: number } | null>(null);
   const playedFocus = useRef(0);
   const playedReset = useRef(0);
+  const appliedSeat = useRef("");
 
   useFrame(() => {
     const snap = latest.current;
     const orbit = snap.controls as OrbitLike | null;
     if (!orbit?.target) return;
 
+    const seat = `${snap.cameraY.toFixed(3)}:${snap.cameraZ.toFixed(3)}`;
+    const overview = overviewViewPose(snap.cameraY, snap.cameraZ);
+
     if (snap.viewResetGeneration && snap.viewResetGeneration !== playedReset.current) {
-      startPoseAnim(snap.camera, orbit, overviewViewPose(snap.cameraY, snap.cameraZ), anim);
+      startPoseAnim(snap.camera, orbit, overview, anim);
       playedReset.current = snap.viewResetGeneration;
       playedFocus.current = snap.focusGeneration;
+      appliedSeat.current = seat;
     } else if (
       snap.focusGeneration &&
       snap.focusGeneration !== playedFocus.current &&
@@ -182,6 +190,9 @@ function FocusOnDie({
       const to = poseForSelection(snap.dice, snap.spacing, snap.selectedDieId, snap.selectedFaceIndex);
       if (to) startPoseAnim(snap.camera, orbit, to, anim);
       playedFocus.current = snap.focusGeneration;
+    } else if (snap.previewMode === "overview" && seat !== appliedSeat.current && !anim.current) {
+      if (applyViewPose(snap.camera, overview)) orbit.target.copy(overview.target);
+      appliedSeat.current = seat;
     }
 
     const a = anim.current;
@@ -257,13 +268,35 @@ export function DiceViewport({ font }: { font: Font | null }) {
   const previewMode = useProjectStore((s) => s.previewMode);
   const resetView = useProjectStore((s) => s.resetView);
   const frameKey = dice.map((d) => `${d.id}:${Math.round(d.sizeMm)}:${d.type}`).join("|");
-  const layout = useMemo(() => layoutSet(dice), [dice, frameKey]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ width: 1, height: 1 });
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const apply = (width: number, height: number) => {
+      if (width < 2 || height < 2) return;
+      setStageSize((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height },
+      );
+    };
+    apply(el.clientWidth, el.clientHeight);
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) apply(rect.width, rect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const aspect = stageSize.width / stageSize.height;
+  const layout = useMemo(() => layoutSet(dice, aspect), [dice, frameKey, aspect]);
   const inspectingFace = previewMode === "face";
 
   return (
     <div className="viewport">
       <ViewportErrorBoundary>
-        <div className="viewport-stage">
+        <div className="viewport-stage" ref={stageRef}>
         <Canvas
           dpr={1}
           resize={{ offsetSize: true, debounce: 0 }}
