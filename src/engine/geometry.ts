@@ -70,6 +70,46 @@ function hullEqualHeightAndEquator(points: Vector3[], sizeMm: number): BufferGeo
   return scaleHeightToEquator(new ConvexGeometry(points.map((p) => p.clone())), sizeMm);
 }
 
+const MIN_ROUNDING = 0.004;
+const MAX_ROUNDING = 0.7;
+/** Maps the 0–0.7 slider onto a fillet radius as a fraction of body size. */
+const ROUNDING_RADIUS_FACTOR = 0.42;
+
+function unitSphereSamples(): Vector3[] {
+  return icosahedronVertices().map((v) => v.clone().normalize());
+}
+
+export function filletRadiusMm(sizeMm: number, amount: number): number {
+  const t = Math.min(MAX_ROUNDING, Math.max(0, amount));
+  return sizeMm * t * ROUNDING_RADIUS_FACTOR;
+}
+
+/**
+ * Approximate a Minkowski fillet: convex hull of small spheres at each vertex,
+ * then scale back to `sizeMm` so the die keeps its catalog size.
+ */
+export function roundConvexGeometry(
+  geometry: BufferGeometry,
+  amount: number,
+  sizeMm: number,
+): BufferGeometry {
+  const t = Math.min(MAX_ROUNDING, Math.max(0, amount));
+  if (t < MIN_ROUNDING) return geometry;
+  const verts = uniqueVertices(geometry);
+  // Skip dense meshes (the D2 cylinder) — those are already round.
+  if (verts.length < 4 || verts.length > 48) return geometry;
+  const r = filletRadiusMm(sizeMm, t);
+  if (r < 1e-4) return geometry;
+  const samples = unitSphereSamples();
+  const points: Vector3[] = [];
+  for (const v of verts) {
+    for (const s of samples) {
+      points.push(new Vector3(v.x + s.x * r, v.y + s.y * r, v.z + s.z * r));
+    }
+  }
+  return scaleToSize(new ConvexGeometry(points), sizeMm);
+}
+
 function icosahedronVertices(): Vector3[] {
   const t = PHI;
   return [

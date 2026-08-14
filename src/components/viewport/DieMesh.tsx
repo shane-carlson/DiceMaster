@@ -64,6 +64,7 @@ export function DieMesh({
   selected,
   selectedFace,
   inspectFace = false,
+  rounded = false,
   onSelectFace,
   onSelectDie,
 }: {
@@ -74,6 +75,7 @@ export function DieMesh({
   selected: boolean;
   selectedFace: number | null;
   inspectFace?: boolean;
+  rounded?: boolean;
   onSelectFace: (index: number) => void;
   onSelectDie: () => void;
 }) {
@@ -98,7 +100,10 @@ export function DieMesh({
     return geom;
   }, [faces, selectedFace, inspectFace]);
 
-  const shaded = useMemo(() => geometryFromFaces(faces), [faces]);
+  const shaded = useMemo(
+    () => (rounded ? null : geometryFromFaces(faces)),
+    [faces, rounded],
+  );
   const displayBody = shaded ?? body;
 
   useLayoutEffect(() => {

@@ -7,7 +7,7 @@ import {
 } from "three";
 import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, type DieFace } from "./faces";
-import { createDieGeometry } from "./geometry";
+import { createDieGeometry, roundConvexGeometry } from "./geometry";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
 import { cutterPlacement, PREVIEW_INK_HEIGHT, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
@@ -41,6 +41,7 @@ export interface DieBuild {
   engraveMode: DieInstance["engraveMode"];
   carved: boolean;
   bumperMm: number;
+  rounded: boolean;
 }
 
 export function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, ox: number, oy: number): Matrix4 {
@@ -184,7 +185,8 @@ export async function buildDie(
   const sharp = createDieGeometry(die.type, die.sizeMm);
   const rawFaces = extractFaces(sharp, die.type);
   const faces = numberFaces(die.type, rawFaces, die.d10Style);
-  const body = sharp;
+  const body = roundConvexGeometry(sharp, die.cornerRounding, die.sizeMm);
+  const rounded = body !== sharp;
   const glyphs: PlacedGlyph[] = [];
   const vertexLabels = usesVertexNumerals(die.type)
     ? tetraOppositeVertexLabels(faces)
@@ -261,6 +263,7 @@ export async function buildDie(
     engraveMode: die.engraveMode,
     carved: false,
     bumperMm: quality === "print" && die.bumpers ? die.bumperSize : 0,
+    rounded,
   };
 }
 
