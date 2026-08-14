@@ -38,12 +38,14 @@ npm run dev
 
 This starts the workshop on port 5173 and the account API on port 8787 (`/api` is proxied). Data lives in `./data` (override with `DATA_DIR`). After `npm run build`, `npm start` serves the API and the built site together.
 
-- **Sign up / Sign in** — cookie session (30 days). Returning visits restore the last set, selected face, and panel.
+- **Sign up / Sign in** — cookie session (30 days) after email confirmation. Returning visits restore the last set, selected face, and panel.
 - **Profile** — `/account` to change display name, email, or password.
 - **Saved sets** — named snapshots in your vault; Save to vault from the workshop.
 - **Logos and fonts** — uploads are stored as blobs per account and can be reused across sets.
 
-Guest mode still works offline. Creating an account copies the current local set into the vault.
+Guest mode still works offline. Creating an account copies the current local set into the vault after you confirm your email.
+
+Verification mail is sent with Resend from `admin@readywriter.one` (override with `DICEMASTER_FROM_EMAIL` / `RESEND_API_KEY`). Sign-in reminds you if the address is still unconfirmed.
 
 ## Admin console
 

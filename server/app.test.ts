@@ -14,11 +14,13 @@ function cookieFrom(res: Response): string {
 
 describe("account API", () => {
   let dir: string;
+  let vault: FileVault;
   let app: ReturnType<typeof createApp>;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "dm-vault-"));
-    app = createApp(new FileVault(dir));
+    vault = new FileVault(dir);
+    app = createApp(vault);
   });
 
   afterEach(() => {
@@ -47,19 +49,94 @@ describe("account API", () => {
     return { res, cookie: cookieFrom(res), body: await res.json() };
   }
 
-  it("signs up, keeps a session, and restores the guest project", async () => {
+  async function verify(email: string) {
+    const user = vault.findUserByEmail(email);
+    const token = user ? vault.latestVerificationToken(user.id) : null;
+    expect(token).toBeTruthy();
+    const res = await app.request("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    return { res, cookie: cookieFrom(res), body: await res.json() };
+  }
+
+  async function signupAndVerify(email = "forge@example.com") {
+    const signed = await signup(email);
+    expect(signed.res.status).toBe(201);
+    return verify(email);
+  }
+
+  it("signs up without a session until the email is confirmed", async () => {
     const { res, cookie, body } = await signup();
     expect(res.status).toBe(201);
+    expect(body.needsVerification).toBe(true);
     expect(body.user.email).toBe("forge@example.com");
-    expect(body.user.displayName).toBe("Raven");
-    expect(body.workspace.project.name).toBe("Guest Hoard");
-    expect(cookie.startsWith("dm_session=")).toBe(true);
+    expect(body.user.emailVerified).toBe(false);
+    expect(cookie.startsWith("dm_session=")).toBe(false);
 
-    const me = await app.request("/api/me", { headers: { cookie } });
+    const blocked = await app.request("/api/me", { headers: { cookie } });
+    expect(blocked.status).toBe(401);
+
+    const { res: verified, cookie: session, body: unlocked } = await verify("forge@example.com");
+    expect(verified.status).toBe(200);
+    expect(session.startsWith("dm_session=")).toBe(true);
+    expect(unlocked.user.emailVerified).toBe(true);
+    expect(unlocked.workspace.project.name).toBe("Guest Hoard");
+
+    const me = await app.request("/api/me", { headers: { cookie: session } });
     expect(me.status).toBe(200);
     const meBody = await me.json();
     expect(meBody.user.displayName).toBe("Raven");
     expect(meBody.workspace.session.lastPath).toBe("/workshop");
+  });
+
+  it("reminds at login when the email is still unconfirmed", async () => {
+    await signup();
+    const login = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "forge@example.com", password: "obsidian8" }),
+    });
+    expect(login.status).toBe(403);
+    const body = await login.json();
+    expect(body.code).toBe("EMAIL_NOT_VERIFIED");
+    expect(body.email).toBe("forge@example.com");
+    expect(cookieFrom(login).startsWith("dm_session=")).toBe(false);
+  });
+
+  it("accepts a verification token twice so email clients can retry", async () => {
+    await signup();
+    const token = vault.latestVerificationToken(vault.findUserByEmail("forge@example.com")!.id);
+    const first = await app.request("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const second = await app.request("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await second.json()).user.emailVerified).toBe(true);
+  });
+
+  it("resends verification without revealing whether the email exists", async () => {
+    await signup();
+    const unknown = await app.request("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "missing@example.com" }),
+    });
+    expect(unknown.status).toBe(200);
+    const known = await app.request("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "forge@example.com" }),
+    });
+    expect(known.status).toBe(200);
   });
 
   it("rejects a duplicate email", async () => {
@@ -70,7 +147,7 @@ describe("account API", () => {
   });
 
   it("logs in and rejects a bad password", async () => {
-    await signup();
+    await signupAndVerify();
     const bad = await app.request("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,7 +164,7 @@ describe("account API", () => {
   });
 
   it("updates a profile and changes the password", async () => {
-    const { cookie } = await signup();
+    const { cookie } = await signupAndVerify();
     const patched = await app.request("/api/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", cookie },
@@ -112,7 +189,7 @@ describe("account API", () => {
   });
 
   it("stores workspace session, saved sets, and blob assets", async () => {
-    const { cookie } = await signup();
+    const { cookie } = await signupAndVerify();
     const project = {
       version: 1 as const,
       name: "Crystal Kit",
@@ -168,7 +245,7 @@ describe("account API", () => {
   });
 
   it("does not let one account read another account's blobs", async () => {
-    const a = await signup("a@example.com");
+    const a = await signupAndVerify("a@example.com");
     const created = await app.request("/api/sets", {
       method: "POST",
       headers: { "Content-Type": "application/json", cookie: a.cookie },
@@ -186,13 +263,13 @@ describe("account API", () => {
       }),
     });
     const set = await created.json();
-    const b = await signup("b@example.com");
+    const b = await signupAndVerify("b@example.com");
     const sneak = await app.request(`/api/sets/${set.id}`, { headers: { cookie: b.cookie } });
     expect(sneak.status).toBe(404);
   });
 
   it("logs out and drops the session", async () => {
-    const { cookie } = await signup();
+    const { cookie } = await signupAndVerify();
     await app.request("/api/auth/logout", { method: "POST", headers: { cookie } });
     const me = await app.request("/api/me", { headers: { cookie } });
     expect(me.status).toBe(401);
@@ -201,11 +278,13 @@ describe("account API", () => {
 
 describe("admin console API", () => {
   let dir: string;
+  let vault: FileVault;
   let app: ReturnType<typeof createApp>;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "dm-admin-"));
-    app = createApp(new FileVault(dir));
+    vault = new FileVault(dir);
+    app = createApp(vault);
   });
 
   afterEach(() => {
@@ -236,7 +315,15 @@ describe("admin console API", () => {
         displayName: "Player",
       }),
     });
-    const player = cookieFrom(signup);
+    expect(signup.status).toBe(201);
+    const playerUser = vault.findUserByEmail("player@example.com");
+    const token = playerUser ? vault.latestVerificationToken(playerUser.id) : null;
+    const verified = await app.request("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const player = cookieFrom(verified);
     const denied = await app.request("/api/admin/users", { headers: { cookie: player } });
     expect(denied.status).toBe(403);
 
@@ -246,6 +333,7 @@ describe("admin console API", () => {
       body: JSON.stringify({ email: "player@example.com", password: "obsidian8" }),
     });
     expect(notAdmin.status).toBe(403);
+    expect((await notAdmin.json()).error).toMatch(/administrator/i);
   });
 
   it("creates, disables, and lists users", async () => {

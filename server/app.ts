@@ -5,6 +5,7 @@ import type { Project } from "../src/engine/types";
 import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
+  EMAIL_VERIFICATION_RESEND_MS,
   SESSION_COOKIE,
   SESSION_DAYS,
   type AnnouncementTone,
@@ -17,6 +18,7 @@ import {
 } from "../shared/account";
 import { hashPassword, verifyPassword } from "./crypto";
 import { FileVault, type UserRecord } from "./store";
+import { sendVerificationEmail } from "./verifyEmail";
 
 const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,6 +93,53 @@ function cookieOpts(c: { req: { url: string } }) {
 
 function setSessionCookie(c: Parameters<typeof setCookie>[0], sessionId: string) {
   setCookie(c, SESSION_COOKIE, sessionId, cookieOpts(c));
+}
+
+function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]) {
+  deleteCookie(c, SESSION_COOKIE, { path: publicBasePath() || "/" });
+}
+
+function requestOrigin(c: { req: { url: string; header: (name: string) => string | undefined } }): string {
+  const env = process.env.SITE_URL?.trim() || process.env.VITE_SITE_URL?.trim();
+  if (env) return env.replace(/\/$/, "");
+  const forwardedHost = c.req.header("x-forwarded-host");
+  const forwardedProto = c.req.header("x-forwarded-proto");
+  if (forwardedHost) {
+    return `${forwardedProto || "https"}://${forwardedHost}`.replace(/\/$/, "");
+  }
+  return new URL(c.req.url).origin;
+}
+
+function verificationPageUrl(
+  c: { req: { url: string; header: (name: string) => string | undefined } },
+  token: string,
+): string {
+  return `${requestOrigin(c)}${publicBasePath()}/verify?token=${encodeURIComponent(token)}`;
+}
+
+async function dispatchVerificationEmail(
+  vault: FileVault,
+  c: { req: { url: string; header: (name: string) => string | undefined } },
+  user: UserRecord,
+): Promise<boolean> {
+  const { token } = vault.issueEmailVerification(user.id);
+  const result = await sendVerificationEmail({
+    to: user.email,
+    displayName: user.displayName,
+    verifyUrl: verificationPageUrl(c, token),
+  });
+  if (!result.ok && result.reason !== "not-configured") {
+    console.error("DiceMaster verification email failed:", result.message);
+  }
+  return result.ok;
+}
+
+function unverifiedPayload(email: string) {
+  return {
+    error: "Confirm your email before using this account. Check your inbox for a verification link.",
+    code: "EMAIL_NOT_VERIFIED" as const,
+    email,
+  };
 }
 
 const FONT_GROUPS: SiteFontGroup[] = ["print", "fantasy", "scifi", "gamer"];
@@ -174,9 +223,16 @@ export function createApp(vault: FileVault) {
       if (project) {
         vault.putWorkspace(user.id, { project, session: { lastPath: "/workshop" } });
       }
-      const session = vault.createSession(user.id, SESSION_MS);
-      setSessionCookie(c, session.id);
-      return c.json({ user: vault.toPublic(user), workspace: vault.getWorkspace(user.id) }, 201);
+      const emailSent = await dispatchVerificationEmail(vault, c, user);
+      return c.json(
+        {
+          needsVerification: true,
+          email: user.email,
+          emailSent,
+          user: vault.toPublic(user),
+        },
+        201,
+      );
     } catch (err) {
       throw asStatusError(err);
     }
@@ -193,6 +249,13 @@ export function createApp(vault: FileVault) {
     if (user.disabled) {
       throw new HTTPException(403, { message: "This account has been disabled." });
     }
+    if (!user.emailVerified) {
+      const lastSent = user.verificationSentAt ?? 0;
+      if (vault.now() - lastSent >= EMAIL_VERIFICATION_RESEND_MS) {
+        await dispatchVerificationEmail(vault, c, user);
+      }
+      return c.json(unverifiedPayload(user.email), 403);
+    }
     const guestProject = optionalProject(body.project);
     const workspace = vault.getWorkspace(user.id);
     if (!workspace.project && guestProject) {
@@ -203,9 +266,40 @@ export function createApp(vault: FileVault) {
     return c.json({ user: vault.toPublic(user), workspace: vault.getWorkspace(user.id) });
   });
 
+  app.post("/api/auth/verify", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const token = typeof body.token === "string" ? body.token.trim() : "";
+    if (!token) {
+      throw new HTTPException(400, { message: "Verification token is missing." });
+    }
+    const user = vault.consumeEmailVerification(token);
+    if (!user) {
+      throw new HTTPException(400, { message: "That verification link is invalid or has expired." });
+    }
+    if (user.disabled) {
+      throw new HTTPException(403, { message: "This account has been disabled." });
+    }
+    const session = vault.createSession(user.id, SESSION_MS);
+    setSessionCookie(c, session.id);
+    return c.json({ user: vault.toPublic(user), workspace: vault.getWorkspace(user.id) });
+  });
+
+  app.post("/api/auth/resend-verification", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const email = requireEmail(body.email);
+    const user = vault.findUserByEmail(email);
+    if (user && !user.disabled && !user.emailVerified) {
+      const lastSent = user.verificationSentAt ?? 0;
+      if (vault.now() - lastSent >= EMAIL_VERIFICATION_RESEND_MS) {
+        await dispatchVerificationEmail(vault, c, user);
+      }
+    }
+    return c.json({ ok: true });
+  });
+
   app.post("/api/auth/logout", async (c) => {
     vault.deleteSession(getCookie(c, SESSION_COOKIE));
-    deleteCookie(c, SESSION_COOKIE, { path: publicBasePath() || "/" });
+    clearSessionCookie(c);
     return c.json({ ok: true });
   });
 
@@ -239,6 +333,9 @@ export function createApp(vault: FileVault) {
     if (user.role !== "admin") {
       throw new HTTPException(403, { message: "This account is not an administrator." });
     }
+    if (!user.emailVerified) {
+      return c.json(unverifiedPayload(user.email), 403);
+    }
     const session = vault.createSession(user.id, SESSION_MS);
     setSessionCookie(c, session.id);
     return c.json({ user: vault.toPublic(user) });
@@ -253,6 +350,9 @@ export function createApp(vault: FileVault) {
     const user = vault.getUser(session.userId);
     if (!user || user.disabled) {
       throw new HTTPException(401, { message: "Sign in to continue." });
+    }
+    if (!user.emailVerified) {
+      return c.json(unverifiedPayload(user.email), 403);
     }
     c.set("user", user);
     await next();
@@ -276,6 +376,16 @@ export function createApp(vault: FileVault) {
     }
     try {
       const next = vault.updateUser(user.id, patch);
+      if (patch.email && patch.email !== user.email) {
+        vault.deleteSessionsForUser(user.id);
+        clearSessionCookie(c);
+        await dispatchVerificationEmail(vault, c, next);
+        return c.json({
+          user: vault.toPublic(next),
+          needsVerification: true,
+          email: next.email,
+        });
+      }
       return c.json({ user: vault.toPublic(next) });
     } catch (err) {
       throw asStatusError(err);
@@ -396,6 +506,7 @@ export function createApp(vault: FileVault) {
     const user = vault.getUser(session.userId);
     if (!user || user.disabled) throw new HTTPException(401, { message: "Sign in to continue." });
     if (user.role !== "admin") throw new HTTPException(403, { message: "Administrator access required." });
+    if (!user.emailVerified) return c.json(unverifiedPayload(user.email), 403);
     c.set("user", user);
     await next();
   });
@@ -414,6 +525,7 @@ export function createApp(vault: FileVault) {
         displayName,
         passwordHash: hashPassword(password),
         role,
+        emailVerified: true,
       });
       return c.json({ user: vault.listUsers().find((u) => u.id === user.id) }, 201);
     } catch (err) {

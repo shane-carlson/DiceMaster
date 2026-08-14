@@ -16,10 +16,14 @@ type AuthState = {
   session: WorkspaceSession;
   saveStatus: SaveStatus;
   error: string | null;
+  pendingVerificationEmail: string | null;
   bootstrap: () => Promise<void>;
   signup: (input: { email: string; password: string; displayName: string }) => Promise<void>;
   login: (input: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  resendVerification: (email?: string) => Promise<void>;
+  clearPendingVerification: () => void;
   updateProfile: (input: {
     displayName?: string;
     email?: string;
@@ -36,6 +40,19 @@ function adoptGuestProject() {
   return useProjectStore.getState().project;
 }
 
+function guestState(pendingVerificationEmail: string | null = null): Partial<AuthState> {
+  return {
+    status: "guest",
+    user: null,
+    workspace: null,
+    settings: { ...DEFAULT_SETTINGS },
+    session: { ...DEFAULT_SESSION },
+    saveStatus: "offline",
+    error: null,
+    pendingVerificationEmail,
+  };
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "bootstrapping",
   user: null,
@@ -44,6 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: { ...DEFAULT_SESSION },
   saveStatus: "offline",
   error: null,
+  pendingVerificationEmail: null,
 
   applyWorkspace: (workspace, replaceProject) => {
     set({
@@ -75,33 +93,75 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   bootstrap: async () => {
     try {
       const payload = await api.me();
+      if (!payload.user.emailVerified) {
+        set(guestState(payload.user.email));
+        return;
+      }
       set({
         status: "signed-in",
         user: payload.user,
         error: null,
         saveStatus: "saved",
+        pendingVerificationEmail: null,
       });
       get().applyWorkspace(payload.workspace, true);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        set({ status: "guest", user: null, workspace: null, saveStatus: "offline", error: null });
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        set(guestState(err.email ?? null));
         return;
       }
-      set({ status: "guest", user: null, saveStatus: "offline", error: null });
+      if (err instanceof ApiError && err.status === 401) {
+        set(guestState());
+        return;
+      }
+      set(guestState());
     }
   },
 
   signup: async (input) => {
     const payload = await api.signup({ ...input, project: adoptGuestProject() });
-    set({ status: "signed-in", user: payload.user, error: null, saveStatus: "saved" });
-    get().applyWorkspace(payload.workspace, true);
+    set(guestState(payload.email));
   },
 
   login: async (input) => {
-    const payload = await api.login({ ...input, project: adoptGuestProject() });
-    set({ status: "signed-in", user: payload.user, error: null, saveStatus: "saved" });
+    try {
+      const payload = await api.login({ ...input, project: adoptGuestProject() });
+      set({
+        status: "signed-in",
+        user: payload.user,
+        error: null,
+        saveStatus: "saved",
+        pendingVerificationEmail: null,
+      });
+      get().applyWorkspace(payload.workspace, true);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        set(guestState(err.email ?? input.email));
+      }
+      throw err;
+    }
+  },
+
+  verifyEmail: async (token) => {
+    const payload = await api.verifyEmail(token);
+    set({
+      status: "signed-in",
+      user: payload.user,
+      error: null,
+      saveStatus: "saved",
+      pendingVerificationEmail: null,
+    });
     get().applyWorkspace(payload.workspace, true);
   },
+
+  resendVerification: async (email) => {
+    const target = email || get().pendingVerificationEmail;
+    if (!target) return;
+    await api.resendVerification(target);
+    set({ pendingVerificationEmail: target });
+  },
+
+  clearPendingVerification: () => set({ pendingVerificationEmail: null }),
 
   logout: async () => {
     try {
@@ -109,20 +169,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       /* still drop local session */
     }
-    set({
-      status: "guest",
-      user: null,
-      workspace: null,
-      settings: { ...DEFAULT_SETTINGS },
-      session: { ...DEFAULT_SESSION },
-      saveStatus: "offline",
-      error: null,
-    });
+    set(guestState());
   },
 
   updateProfile: async (input) => {
-    const { user } = await api.updateProfile(input);
-    set({ user });
+    const result = await api.updateProfile(input);
+    if (result.needsVerification) {
+      set(guestState(result.email ?? result.user.email));
+      return;
+    }
+    set({ user: result.user });
   },
 
   patchSession: (patch) =>

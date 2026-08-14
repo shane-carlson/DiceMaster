@@ -159,6 +159,7 @@ function UsersTab({ onError }: { onError: (msg: string | null) => void }) {
               </strong>
               <small>
                 {u.email} · {u.role}
+                {u.emailVerified ? "" : " · unverified"}
                 {u.disabled ? " · disabled" : ""} · {u.setCount} sets
               </small>
             </div>
