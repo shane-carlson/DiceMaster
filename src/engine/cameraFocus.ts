@@ -86,6 +86,15 @@ export function interpolatePose(from: ViewPose, to: ViewPose, t: number): ViewPo
   return { target, position, up };
 }
 
+/** Workshop overview: origin-centered, world-up, matching the initial canvas camera. */
+export function overviewViewPose(cameraY: number, cameraZ: number): ViewPose {
+  return {
+    target: new Vector3(0, 0, 0),
+    position: new Vector3(0, cameraY, cameraZ),
+    up: new Vector3(0, 1, 0),
+  };
+}
+
 export function dieViewPose(
   origin: [number, number, number],
   sizeMm: number,

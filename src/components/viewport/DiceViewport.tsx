@@ -1,4 +1,4 @@
-import { Component, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import { Component, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { ACESFilmicToneMapping, BufferGeometry, Vector3 } from "three";
@@ -14,6 +14,7 @@ import {
   faceViewPose,
   finiteVec,
   interpolatePose,
+  overviewViewPose,
   type ViewPose,
 } from "../../engine/cameraFocus";
 import { usesVertexNumerals } from "../../engine/d4";
@@ -99,47 +100,94 @@ function poseForSelection(
   }
 }
 
+function startPoseAnim(
+  camera: { position: Vector3; up: Vector3 },
+  orbit: OrbitLike,
+  to: ViewPose,
+  anim: { current: { from: ViewPose; to: ViewPose; started: number } | null },
+) {
+  anim.current = {
+    from: {
+      position: camera.position.clone(),
+      target: orbit.target.clone(),
+      up: currentUp(camera),
+    },
+    to: {
+      position: to.position.clone(),
+      target: to.target.clone(),
+      up: to.up.clone(),
+    },
+    started: performance.now(),
+  };
+}
+
 function FocusOnDie({
   dice,
   spacing,
+  cameraY,
+  cameraZ,
+  resetGeneration,
 }: {
   dice: DieInstance[];
   spacing: number;
+  cameraY: number;
+  cameraZ: number;
+  resetGeneration: number;
 }) {
   const { camera, controls } = useThree();
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
   const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const focusGeneration = useProjectStore((s) => s.focusGeneration);
-  const latest = useRef({ dice, spacing, selectedDieId, selectedFaceIndex, camera, controls });
-  latest.current = { dice, spacing, selectedDieId, selectedFaceIndex, camera, controls };
+  const latest = useRef({
+    dice,
+    spacing,
+    selectedDieId,
+    selectedFaceIndex,
+    camera,
+    controls,
+    cameraY,
+    cameraZ,
+    resetGeneration,
+    focusGeneration,
+  });
+  latest.current = {
+    dice,
+    spacing,
+    selectedDieId,
+    selectedFaceIndex,
+    camera,
+    controls,
+    cameraY,
+    cameraZ,
+    resetGeneration,
+    focusGeneration,
+  };
   const anim = useRef<{ from: ViewPose; to: ViewPose; started: number } | null>(null);
-  const played = useRef(0);
+  const playedFocus = useRef(0);
+  const playedReset = useRef(0);
 
   useFrame(() => {
     const snap = latest.current;
     const orbit = snap.controls as OrbitLike | null;
-    if (focusGeneration && focusGeneration !== played.current && snap.selectedDieId && orbit?.target) {
+    if (!orbit?.target) return;
+
+    if (snap.resetGeneration && snap.resetGeneration !== playedReset.current) {
+      startPoseAnim(snap.camera, orbit, overviewViewPose(snap.cameraY, snap.cameraZ), anim);
+      playedReset.current = snap.resetGeneration;
+      playedFocus.current = snap.focusGeneration;
+    } else if (
+      snap.focusGeneration &&
+      snap.focusGeneration !== playedFocus.current &&
+      snap.selectedDieId
+    ) {
       const to = poseForSelection(snap.dice, snap.spacing, snap.selectedDieId, snap.selectedFaceIndex);
-      if (to) {
-        anim.current = {
-          from: {
-            position: snap.camera.position.clone(),
-            target: orbit.target.clone(),
-            up: currentUp(snap.camera),
-          },
-          to: {
-            position: to.position.clone(),
-            target: to.target.clone(),
-            up: to.up.clone(),
-          },
-          started: performance.now(),
-        };
-      }
-      played.current = focusGeneration;
+      if (to) startPoseAnim(snap.camera, orbit, to, anim);
+      playedFocus.current = snap.focusGeneration;
     }
+
     const a = anim.current;
     const cam = snap.camera;
-    if (!a || !orbit?.target) return;
+    if (!a) return;
     const t = Math.min(1, (performance.now() - a.started) / 520);
     const k = 1 - (1 - t) ** 3;
     const pose = interpolatePose(a.from, a.to, k);
@@ -203,6 +251,7 @@ function PlacedDie({
 
 export function DiceViewport({ font }: { font: Font | null }) {
   const dice = useProjectStore((s) => s.project.dice);
+  const [resetGeneration, setResetGeneration] = useState(0);
   const frameKey = dice.map((d) => `${d.id}:${Math.round(d.sizeMm)}:${d.type}`).join("|");
   const layout = useMemo(() => layoutSet(dice), [dice, frameKey]);
 
@@ -255,10 +304,23 @@ export function DiceViewport({ font }: { font: Font | null }) {
             minDistance={layout.minDistance}
             maxDistance={layout.maxDistance}
           />
-          <FocusOnDie dice={dice} spacing={layout.spacing} />
+          <FocusOnDie
+            dice={dice}
+            spacing={layout.spacing}
+            cameraY={layout.cameraY}
+            cameraZ={layout.cameraZ}
+            resetGeneration={resetGeneration}
+          />
         </Canvas>
         </div>
       </ViewportErrorBoundary>
+      <button
+        type="button"
+        className="viewport-reset"
+        onClick={() => setResetGeneration((n) => n + 1)}
+      >
+        Reset view
+      </button>
       <div className="viewport-hint">
         Drag to orbit · Scroll to zoom · Pick a face to zoom in with the numeral upright
       </div>

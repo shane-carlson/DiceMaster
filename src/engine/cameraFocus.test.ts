@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PerspectiveCamera, Vector3 } from "three";
-import { applyViewPose, interpolatePose, slerpUnit, type ViewPose } from "./cameraFocus";
+import {
+  applyViewPose,
+  interpolatePose,
+  overviewViewPose,
+  slerpUnit,
+  type ViewPose,
+} from "./cameraFocus";
 
 describe("camera pose interpolation", () => {
   it("slerps unit vectors along an arc", () => {
@@ -50,6 +56,15 @@ describe("camera pose interpolation", () => {
     const mid = slerpUnit(new Vector3(0, 0, 0), new Vector3(0, 1, 0), 0.4);
     expect(mid.toArray().every(Number.isFinite)).toBe(true);
     expect(mid.length()).toBeCloseTo(1, 5);
+  });
+});
+
+describe("overview view", () => {
+  it("looks at the origin with world-up from the default camera seat", () => {
+    const pose = overviewViewPose(12, 48);
+    expect(pose.target.toArray()).toEqual([0, 0, 0]);
+    expect(pose.position.toArray()).toEqual([0, 12, 48]);
+    expect(pose.up.toArray()).toEqual([0, 1, 0]);
   });
 });
 
