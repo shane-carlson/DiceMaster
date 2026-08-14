@@ -2,6 +2,8 @@ import type { GlyphSettings } from "../../engine/types";
 import { DEFAULT_GLYPH_SCALE } from "../../engine/defaults";
 import { PercentSlider, Slider } from "./Slider";
 
+const MARK_OFFSET_Y = 2;
+
 export function GlyphPlace({
   glyph,
   onChange,
@@ -17,6 +19,10 @@ export function GlyphPlace({
   defaultScale?: number;
   defaultOffsetY?: number;
 }) {
+  const mark = glyph.kind === "symbol" || glyph.kind === "logo";
+  const yMin = mark ? -MARK_OFFSET_Y : -1;
+  const yMax = mark ? MARK_OFFSET_Y : 1;
+
   return (
     <>
       <PercentSlider
@@ -42,8 +48,8 @@ export function GlyphPlace({
         label="Move Y"
         hint="Slide the mark up or down on the face. Positive moves toward the top of the face."
         value={glyph.offsetY}
-        min={-1}
-        max={1}
+        min={yMin}
+        max={yMax}
         step={0.01}
         defaultValue={defaultOffsetY}
         onChange={(n) => onChange({ offsetY: n })}
