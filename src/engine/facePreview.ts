@@ -1,5 +1,5 @@
-import { extractFaces, faceOutline2D } from "./faces";
-import { createDieGeometry } from "./geometry";
+import { extractFaces, faceOutline2D, roundingReachScale } from "./faces";
+import { createDieGeometry, filletRadiusMm } from "./geometry";
 import { numberFaces } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, FaceKind, GlyphSettings } from "./types";
@@ -66,6 +66,7 @@ function projectFace(die: DieInstance): FacePreview[] {
   const geom = createDieGeometry(die.type, die.sizeMm);
   const faces = numberFaces(die.type, extractFaces(geom, die.type), die.d10Style);
   const vertexLabels = usesVertexNumerals(die.type) ? tetraOppositeVertexLabels(faces) : null;
+  const filletMm = filletRadiusMm(die.sizeMm, die.cornerRounding);
   geom.dispose();
 
   return faces
@@ -79,8 +80,9 @@ function projectFace(die: DieInstance): FacePreview[] {
     if (kind === "blank") {
       /* number replaced with empty; emblem may still show */
     } else if (vertexLabels && kind === "number") {
+      const reach = 0.6 * roundingReachScale(face, filletMm);
       marks.push(
-        ...d4CornerPlacements(face, vertexLabels).map((c) => ({
+        ...d4CornerPlacements(face, vertexLabels, reach).map((c) => ({
           x: c.ox,
           y: c.oy,
           rotation: c.rotation,

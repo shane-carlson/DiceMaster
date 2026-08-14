@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
-import { extractFaces } from "./faces";
+import { extractFaces, roundingReachScale } from "./faces";
 import { createDieGeometry } from "./geometry";
 import { numberFaces } from "./numbering";
 
@@ -35,6 +35,18 @@ describe("tetrahedron vertex numerals", () => {
       for (const c of d4CornerPlacements(face, labels)) {
         expect(Math.hypot(c.ox, c.oy)).toBeGreaterThan(2);
       }
+    }
+  });
+
+  it("pulls corner numerals inward as rounding grows", () => {
+    const faces = numberFaces("d4", extractFaces(createDieGeometry("d4", 18), "d4"), "0-9");
+    const labels = tetraOppositeVertexLabels(faces);
+    for (const face of faces) {
+      const sharp = d4CornerPlacements(face, labels, 0.6);
+      const rounded = d4CornerPlacements(face, labels, 0.6 * roundingReachScale(face, 2.4));
+      expect(Math.hypot(rounded[0].ox, rounded[0].oy)).toBeLessThan(
+        Math.hypot(sharp[0].ox, sharp[0].oy),
+      );
     }
   });
 
