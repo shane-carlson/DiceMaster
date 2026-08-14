@@ -11,7 +11,6 @@ import { useAuthStore } from "./store/authStore";
 import { useCatalogStore } from "./store/catalogStore";
 import { setTrackedPath, startWorkspaceSync } from "./sync/workspaceSync";
 import { SiteBanner } from "./components/layout/SiteBanner";
-import { BuyMeCoffee } from "./components/BuyMeCoffee";
 import { APP_BASE } from "./appBase";
 
 function SessionTracker() {
@@ -34,7 +33,6 @@ function Bootstrap() {
 export default function App() {
   return (
     <div className="app-root">
-      <BuyMeCoffee />
       <BrowserRouter basename={APP_BASE || undefined}>
         <Bootstrap />
         <SessionTracker />
