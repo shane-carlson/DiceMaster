@@ -41,9 +41,9 @@ export function HeroScene() {
   return (
     <Canvas
       camera={{ position: [0, 8, 42], fov: 38 }}
-      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.45 }}
+      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.12 }}
     >
-      <color attach="background" args={["#0d0a08"]} />
+      <color attach="background" args={["#e8eef5"]} />
       <SceneLights />
       <HeroDie />
       <OrbitControls enablePan={false} autoRotate autoRotateSpeed={0.7} minDistance={28} maxDistance={70} />

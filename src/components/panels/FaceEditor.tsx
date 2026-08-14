@@ -59,7 +59,7 @@ function FaceCell({
           <polygon
             points={face.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
             fill={face.dieColor}
-            stroke="rgba(244,234,212,0.35)"
+            stroke="rgba(48, 80, 120, 0.28)"
             strokeWidth={span * 0.03}
             strokeLinejoin="round"
           />

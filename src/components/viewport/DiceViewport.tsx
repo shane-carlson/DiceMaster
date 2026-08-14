@@ -266,7 +266,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
         <Canvas
           dpr={1}
           resize={{ offsetSize: true, debounce: 0 }}
-          gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.45 }}
+          gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.12 }}
           camera={{
             position: [0, layout.cameraY, layout.cameraZ],
             fov: layout.fov,
@@ -282,7 +282,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
           }}
         >
           <AimAtOrigin />
-          <color attach="background" args={["#0c0907"]} />
+          <color attach="background" args={["#e8eef5"]} />
           <SceneLights dimmed={inspectingFace} />
           <FaceInspectLight enabled={inspectingFace} />
           {dice.map((die, i) => (
@@ -299,11 +299,11 @@ export function DiceViewport({ font }: { font: Font | null }) {
             <>
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY - 0.02, 0]}>
                 <circleGeometry args={[layout.groundR, 64]} />
-                <meshBasicMaterial color="#1a120c" />
+                <meshBasicMaterial color="#dce3ec" />
               </mesh>
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, layout.groundY + 0.04, 0]}>
                 <ringGeometry args={[layout.groundR * 0.72, layout.groundR * 0.74, 64]} />
-                <meshBasicMaterial color="#d7b15a" />
+                <meshBasicMaterial color="#3087c6" />
               </mesh>
             </>
           )}

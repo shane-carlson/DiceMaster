@@ -8,24 +8,24 @@ export function SceneLights({ dimmed = false }: { dimmed?: boolean }) {
   if (dimmed) {
     return (
       <>
-        <ambientLight color="#f0e2c4" intensity={1.45} />
-        <hemisphereLight color="#fff6e0" groundColor="#5a3a22" intensity={1.05} />
+        <ambientLight color="#ffffff" intensity={1.2} />
+        <hemisphereLight color="#f4f7fb" groundColor="#c5cdd8" intensity={0.9} />
       </>
     );
   }
   return (
     <>
-      <ambientLight color="#f4e6c4" intensity={1.7} />
-      <hemisphereLight color="#ffe7b3" groundColor="#2a160e" intensity={1.35} />
+      <ambientLight color="#ffffff" intensity={1.35} />
+      <hemisphereLight color="#f7f9fc" groundColor="#c8d0da" intensity={1.05} />
       <directionalLight
         position={[30, 50, 35]}
-        intensity={2.6}
-        color="#fff3d2"
+        intensity={2.1}
+        color="#ffffff"
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
-      <directionalLight position={[-40, 18, -28]} intensity={0.95} color="#8b6cff" />
-      <directionalLight position={[16, -12, 32]} intensity={0.5} color="#c45a3a" />
+      <directionalLight position={[-40, 18, -28]} intensity={0.55} color="#9ec4e8" />
+      <directionalLight position={[16, -12, 32]} intensity={0.35} color="#f0d8c8" />
     </>
   );
 }
@@ -53,9 +53,9 @@ export function FaceInspectLight({ enabled }: { enabled: boolean }) {
   }, [scene]);
 
   useLayoutEffect(() => {
-    gl.toneMappingExposure = enabled ? 1.22 : 1.45;
+    gl.toneMappingExposure = enabled ? 1.05 : 1.12;
     return () => {
-      gl.toneMappingExposure = 1.45;
+      gl.toneMappingExposure = 1.12;
     };
   }, [enabled, gl]);
 
@@ -88,8 +88,8 @@ export function FaceInspectLight({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <directionalLight ref={key} color="#f6ebd0" />
-      <directionalLight ref={fill} color="#d7c4a0" />
+      <directionalLight ref={key} color="#ffffff" />
+      <directionalLight ref={fill} color="#d7e4f2" />
     </>
   );
 }

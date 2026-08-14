@@ -232,7 +232,7 @@ export function ExportDialog({
           </div>
         )}
         {error && (
-          <p className="help" style={{ color: "#f0b4a8" }}>
+          <p className="help" style={{ color: "var(--blood)" }}>
             {error}
           </p>
         )}

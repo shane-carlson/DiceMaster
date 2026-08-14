@@ -123,8 +123,8 @@ export function DieMesh({
           color={color}
           roughness={inspectFace ? 0.46 : 0.52}
           metalness={0.02}
-          emissive={inspectFace ? "#000000" : selected ? "#5c4018" : "#110a06"}
-          emissiveIntensity={inspectFace ? 0 : selected ? 0.28 : 0.04}
+          emissive={inspectFace ? "#000000" : selected ? "#1a4a7a" : "#000000"}
+          emissiveIntensity={inspectFace ? 0 : selected ? 0.16 : 0}
           polygonOffset
           polygonOffsetFactor={1}
           polygonOffsetUnits={1}
@@ -141,7 +141,7 @@ export function DieMesh({
       {highlight && (
         <mesh geometry={highlight} renderOrder={3}>
           <meshBasicMaterial
-            color="#f0d78a"
+            color="#3087c6"
             transparent
             opacity={0.32}
             side={DoubleSide}
