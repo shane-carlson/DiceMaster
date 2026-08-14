@@ -138,7 +138,7 @@ export function faceViewPose(
   if (up.lengthSq() < 1e-8) up.set(1, 0, 0);
   up.normalize();
   if (numeralRotationDeg) {
-    up.applyAxisAngle(n, (numeralRotationDeg * Math.PI) / 180);
+    up.applyAxisAngle(n, (-numeralRotationDeg * Math.PI) / 180);
   }
   if (!finiteVec(up)) up.set(0, 1, 0);
   return { target, position, up };

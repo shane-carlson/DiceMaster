@@ -36,4 +36,20 @@ describe("tetrahedron vertex numerals", () => {
       }
     }
   });
+
+  it("orients each numeral toward its vertex the same way the face editor does", () => {
+    const faces = numberFaces("d4", extractFaces(createDieGeometry("d4", 18), "d4"), "0-9");
+    const labels = tetraOppositeVertexLabels(faces);
+    for (const face of faces) {
+      for (const c of d4CornerPlacements(face, labels)) {
+        const θ = (c.rotation * Math.PI) / 180;
+        // Face editor: rotate(-θ) in Y-up (tangent, bitangent). 3D glyphs use
+        // the same sign, so local +Y lands on the vertex direction.
+        const upX = Math.sin(θ);
+        const upY = Math.cos(θ);
+        const len = Math.hypot(c.ox, c.oy);
+        expect((upX * c.ox + upY * c.oy) / len).toBeCloseTo(1, 5);
+      }
+    }
+  });
 });

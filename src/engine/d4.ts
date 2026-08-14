@@ -59,6 +59,7 @@ export function d4CornerPlacements(
       label: labels.get(vertexKey(v)) ?? face.label,
       ox: tx * reach,
       oy: ty * reach,
+      // CCW from bitangent in the face plane (same units as the face editor).
       rotation: (Math.atan2(tx, ty) * 180) / Math.PI,
     };
   });

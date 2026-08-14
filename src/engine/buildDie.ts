@@ -51,7 +51,9 @@ function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, ox: num
     .add(face.bitangent.clone().multiplyScalar(oy));
   m.setPosition(pos);
   if (rotationDeg) {
-    const rot = new Matrix4().makeRotationAxis(face.normal, (rotationDeg * Math.PI) / 180);
+    // Negative so +rotation is CCW when looking at the face from outside,
+    // matching the face-editor SVG `rotate(-θ)` in Y-up face coordinates.
+    const rot = new Matrix4().makeRotationAxis(face.normal, (-rotationDeg * Math.PI) / 180);
     const t1 = new Matrix4().makeTranslation(-pos.x, -pos.y, -pos.z);
     const t2 = new Matrix4().makeTranslation(pos.x, pos.y, pos.z);
     m.premultiply(t1).premultiply(rot).premultiply(t2);

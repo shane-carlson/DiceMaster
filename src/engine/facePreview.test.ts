@@ -66,7 +66,7 @@ describe("face camera pose", () => {
     const faces = extractFaces(createDieGeometry("d6", 16), "d6");
     const face = faces[0];
     const pose = faceViewPose([0, 0, 0], face, 16, 90);
-    expect(Math.abs(pose.up.dot(face.tangent))).toBeGreaterThan(0.98);
+    expect(pose.up.dot(face.tangent)).toBeGreaterThan(0.98);
     expect(Math.abs(pose.up.dot(face.bitangent))).toBeLessThan(0.05);
   });
 });
