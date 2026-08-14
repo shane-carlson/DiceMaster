@@ -16,6 +16,14 @@ describe("templates", () => {
     expect(dice.every((d) => d.cornerRounding === 0)).toBe(true);
   });
 
+  it("every template die starts with zero corner rounding", () => {
+    for (const t of SET_TEMPLATES) {
+      for (const die of diceFromTemplate(t)) {
+        expect(die.cornerRounding, t.id).toBe(0);
+      }
+    }
+  });
+
   it("every template builds the advertised face counts", () => {
     for (const t of SET_TEMPLATES) {
       for (const die of diceFromTemplate(t)) {

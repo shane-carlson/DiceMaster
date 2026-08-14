@@ -42,6 +42,8 @@ export const DEFAULT_EMBLEM_OFFSET_Y = 0.58;
 export const DEFAULT_FONT_SCALE = 1;
 export const DEFAULT_GLOBAL_FONT_SCALE = 1;
 export const DEFAULT_CORNER_ROUNDING = 0;
+/** Factory rounding before it was set to 0. Migrated to 0 when loading old sets. */
+export const LEGACY_DEFAULT_CORNER_ROUNDING = 0.18;
 
 export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
   return {
@@ -132,6 +134,16 @@ export function ensureFaceCount(die: DieInstance): DieInstance {
     next[i] = die.faces[i];
   }
   return { ...die, faces: next };
+}
+
+/** Missing values and the old 0.18 factory default become sharp (0). Custom rounding is kept. */
+export function ensureCornerRounding(die: DieInstance): DieInstance {
+  const value = die.cornerRounding;
+  if (!Number.isFinite(value) || value === LEGACY_DEFAULT_CORNER_ROUNDING) {
+    if (value === DEFAULT_CORNER_ROUNDING) return die;
+    return { ...die, cornerRounding: DEFAULT_CORNER_ROUNDING };
+  }
+  return die;
 }
 
 export function resetGlyphPlacement(

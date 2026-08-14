@@ -1,5 +1,5 @@
-import type { Project } from "./types";
-import { ensureCarveDepth, ensureFaceCount } from "./defaults";
+import type { DieInstance, Project } from "./types";
+import { ensureCarveDepth, ensureCornerRounding, ensureFaceCount } from "./defaults";
 import { defaultCarveDepth } from "./carve";
 
 const STORAGE_KEY = "dicemaster.project.v1";
@@ -8,16 +8,24 @@ export function serializeProject(project: Project): string {
   return JSON.stringify(project, null, 2);
 }
 
+function normalizeDie(die: DieInstance): DieInstance {
+  return ensureCarveDepth(ensureFaceCount(ensureCornerRounding(die)));
+}
+
+export function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    globalDepth: defaultCarveDepth("standard"),
+    dice: project.dice.map(normalizeDie),
+  };
+}
+
 export function parseProject(raw: string): Project {
   const data = JSON.parse(raw) as Project;
   if (!data || data.version !== 1 || !Array.isArray(data.dice)) {
     throw new Error("This file is not a DiceMaster project.");
   }
-  return {
-    ...data,
-    globalDepth: defaultCarveDepth("standard"),
-    dice: data.dice.map((d) => ensureCarveDepth(ensureFaceCount(d))),
-  };
+  return normalizeProject(data);
 }
 
 export function saveLocal(project: Project) {

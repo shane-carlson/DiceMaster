@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { PublicUser, UserSettings, WorkspacePayload, WorkspaceSession } from "../../shared/account";
 import { DEFAULT_SESSION, DEFAULT_SETTINGS } from "../../shared/account";
 import { api, ApiError } from "../api/client";
-import { saveLocal } from "../engine/projectIO";
+import { saveLocal, normalizeProject } from "../engine/projectIO";
 import { useProjectStore } from "./projectStore";
 
 export type AuthStatus = "bootstrapping" | "guest" | "signed-in";
@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session: workspace.session,
     });
     if (!replaceProject || !workspace.project) return;
-    const project = workspace.project;
+    const project = normalizeProject(workspace.project);
     const selectedDieId =
       (workspace.session.selectedDieId &&
         project.dice.some((d) => d.id === workspace.session.selectedDieId) &&

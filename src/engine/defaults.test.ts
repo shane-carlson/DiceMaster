@@ -6,6 +6,8 @@ import {
   DEFAULT_EMBLEM_SCALE,
   DEFAULT_FONT_SCALE,
   DEFAULT_GLYPH_SCALE,
+  ensureCornerRounding,
+  LEGACY_DEFAULT_CORNER_ROUNDING,
   makeEmblem,
   resetDieSliders,
 } from "./defaults";
@@ -61,5 +63,25 @@ describe("resetDieSliders", () => {
     const next = resetDieSliders(die);
     expect(next.sizeFormat).toBe("chonk");
     expect(next.sizeMm).toBe(sizeFor("d20", "chonk"));
+  });
+});
+
+describe("createDie", () => {
+  it("starts every shape with zero corner rounding", () => {
+    for (const type of ["d4", "d6", "d8", "d10", "d00", "d12", "d20"] as const) {
+      expect(createDie(type).cornerRounding).toBe(DEFAULT_CORNER_ROUNDING);
+    }
+  });
+});
+
+describe("ensureCornerRounding", () => {
+  it("migrates the old 0.18 factory default to 0", () => {
+    const die = createDie("d20", "standard", { cornerRounding: LEGACY_DEFAULT_CORNER_ROUNDING });
+    expect(ensureCornerRounding(die).cornerRounding).toBe(0);
+  });
+
+  it("keeps a custom rounding value", () => {
+    const die = createDie("d6", "standard", { cornerRounding: 0.35 });
+    expect(ensureCornerRounding(die).cornerRounding).toBe(0.35);
   });
 });
