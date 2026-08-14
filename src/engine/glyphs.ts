@@ -314,13 +314,14 @@ export function extrudeShapes(
   depth: number,
   align: GlyphZAlign = "center",
   openFace = false,
+  curveSegments = 8,
 ): BufferGeometry | null {
   if (shapes.length === 0) return null;
   const d = Math.max(depth, 0.08);
   const geom = new ExtrudeGeometry(shapes, {
     depth: d,
     bevelEnabled: false,
-    curveSegments: 8,
+    curveSegments,
     steps: 1,
   });
   geom.computeBoundingBox();
@@ -361,6 +362,7 @@ export async function buildGlyphGeometry(
   depth: number,
   align: GlyphZAlign = "center",
   openFace = false,
+  curveSegments = 8,
 ): Promise<GlyphBuild | null> {
   if (glyph.kind === "blank") return null;
   let shapes: Shape[] = [];
@@ -412,7 +414,7 @@ export async function buildGlyphGeometry(
   const cx = (scaledBb.minX + scaledBb.maxX) / 2;
   const cy = (scaledBb.minY + scaledBb.maxY) / 2;
   const contours = contoursFromShapes(scaled, -cx, -cy);
-  const geometry = extrudeShapes(scaled, depth, align, openFace);
+  const geometry = extrudeShapes(scaled, depth, align, openFace, curveSegments);
   if (!geometry) return null;
   return { geometry, width: w * scale, height: h * scale, contours };
 }

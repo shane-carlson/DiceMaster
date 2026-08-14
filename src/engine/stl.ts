@@ -3,13 +3,13 @@ import { STLExporter } from "three/addons/exporters/STLExporter.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import JSZip from "jszip";
 import type { Font } from "opentype.js";
-import { bakeEngraving, buildDie } from "./buildDie";
+import { bakeEngraving, buildDie, yieldToMain } from "./buildDie";
 import { packFootprints, STANDARD_RESIN_PLATE } from "./packPlate";
 import type { DieInstance, LogoAsset, Project } from "./types";
 
 const exporter = new STLExporter();
 
-export function geometryToStl(geometry: ReturnType<typeof bakeEngraving>): ArrayBuffer {
+export function geometryToStl(geometry: BufferGeometry): ArrayBuffer {
   const mesh = new Mesh(geometry, new MeshNormalMaterial());
   mesh.updateMatrixWorld();
   const data = exporter.parse(mesh, { binary: true });
@@ -51,7 +51,7 @@ export async function exportDieStl(
   globalScale: number,
 ): Promise<{ name: string; buffer: ArrayBuffer }> {
   const build = await buildDie(die, font, logos, globalScale, "print");
-  const baked = bakeEngraving(build, die.engraveMode);
+  const baked = await bakeEngraving(build, die.engraveMode);
   const buffer = geometryToStl(baked);
   baked.dispose();
   build.body.dispose();
@@ -71,6 +71,7 @@ export async function exportProjectZip(
   for (let i = 0; i < dice.length; i++) {
     const die = dice[i];
     onProgress?.(i, total, die.name);
+    await yieldToMain();
     const { name, buffer } = await exportDieStl(
       die,
       font,
@@ -111,8 +112,9 @@ export async function exportPackedPlateStl(
   for (let i = 0; i < dice.length; i++) {
     const die = dice[i];
     onProgress?.(i, total, die.name);
+    await yieldToMain();
     const build = await buildDie(die, font, project.logos, project.globalFontScale, "print");
-    const baked = bakeEngraving(build, die.engraveMode);
+    const baked = await bakeEngraving(build, die.engraveMode);
     sitOnBuildPlate(baked);
     baked.computeBoundingBox();
     const bb = baked.boundingBox!;

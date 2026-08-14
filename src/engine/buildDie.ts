@@ -9,9 +9,9 @@ import {
   ADDITION,
   Brush,
   Evaluator,
-  INTERSECTION,
   SUBTRACTION,
 } from "three-bvh-csg";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
@@ -68,6 +68,16 @@ export function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, 
   return m;
 }
 
+export function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
 /** Convex hulls have no UVs; ExtrudeGeometry does. CSG requires the same attrs. */
 function csgEvaluator(): Evaluator {
   const evaluator = new Evaluator();
@@ -80,22 +90,6 @@ function prepareCsgGeometry(geometry: BufferGeometry): BufferGeometry {
   if (!geometry.getAttribute("normal")) geometry.computeVertexNormals();
   if (geometry.getAttribute("uv")) geometry.deleteAttribute("uv");
   return geometry;
-}
-
-function applyRounding(body: BufferGeometry, amount: number): BufferGeometry {
-  if (amount <= 0.001) return body;
-  body.computeBoundingSphere();
-  const r = (body.boundingSphere?.radius ?? 10) * (1 - amount * 0.14);
-  const sphere = new SphereGeometry(r, 24, 16);
-  const evaluator = csgEvaluator();
-  const a = new Brush(prepareCsgGeometry(body));
-  const b = new Brush(prepareCsgGeometry(sphere));
-  a.updateMatrixWorld();
-  b.updateMatrixWorld();
-  const result = evaluator.evaluate(a, b, INTERSECTION);
-  const geom = result.geometry.clone();
-  geom.computeVertexNormals();
-  return geom;
 }
 
 function applyBumpers(body: BufferGeometry, size: number): BufferGeometry {
@@ -125,21 +119,38 @@ async function placedFromGlyph(
   globalScale: number,
   role: PlacedGlyph["role"],
   placement?: { ox: number; oy: number; rotation: number; fitMul?: number },
+  quality: "preview" | "print" = "preview",
 ): Promise<PlacedGlyph | null> {
   const depth = resolveCarveDepth(die, glyph.depth);
   const fit = glyphFitSize(face) * die.fontScale * globalScale * (placement?.fitMul ?? 1);
   const inset = die.engraveMode !== "emboss";
   const cut = cutterPlacement(depth, die.engraveMode);
-  const preview = await buildGlyphGeometry(
+  const segments = quality === "print" ? 5 : 8;
+  const cutter = await buildGlyphGeometry(
     glyph,
     font,
     logos,
     fit,
-    depth,
-    inset ? "inset" : "outset",
+    cut.height,
+    "center",
+    false,
+    segments,
   );
-  const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cut.height, "center");
-  if (!preview || !cutter) return null;
+  if (!cutter) return null;
+  const preview =
+    quality === "print"
+      ? cutter
+      : await buildGlyphGeometry(
+          glyph,
+          font,
+          logos,
+          fit,
+          depth,
+          inset ? "inset" : "outset",
+          false,
+          segments,
+        );
+  if (!preview) return null;
   const ox = (placement?.ox ?? 0) + glyph.offsetX * fit * 0.45;
   const oy = (placement?.oy ?? 0) + glyph.offsetY * fit * 0.45;
   const rotation = (placement?.rotation ?? 0) + glyph.rotation;
@@ -206,12 +217,9 @@ export async function buildDie(
   const rawFaces = extractFaces(sharp, die.type);
   const faces = numberFaces(die.type, rawFaces, die.d10Style);
   let body = sharp;
-  if (quality === "print") {
+  if (quality === "print" && die.bumpers) {
     try {
-      body = applyRounding(body, die.cornerRounding);
-      if (die.bumpers) {
-        body = applyBumpers(body, die.bumperSize);
-      }
+      body = applyBumpers(body, die.bumperSize);
     } catch {
       body = sharp;
     }
@@ -248,6 +256,7 @@ export async function buildDie(
           globalScale,
           "primary",
           { ox: corner.ox, oy: corner.oy, rotation: corner.rotation, fitMul: 0.42 },
+          quality,
         );
         if (placed) glyphs.push(placed);
       }
@@ -260,6 +269,8 @@ export async function buildDie(
         logos,
         globalScale,
         "primary",
+        undefined,
+        quality,
       );
       if (primary) glyphs.push(primary);
     }
@@ -273,6 +284,8 @@ export async function buildDie(
         logos,
         globalScale * 0.55,
         "emblem",
+        undefined,
+        quality,
       );
       if (emblem) glyphs.push(emblem);
     }
@@ -289,20 +302,19 @@ export async function buildDie(
   };
 }
 
-export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"]): BufferGeometry {
+export async function bakeEngraving(
+  build: DieBuild,
+  mode: DieInstance["engraveMode"],
+): Promise<BufferGeometry> {
   if (build.glyphs.length === 0) return build.body.clone();
   const evaluator = csgEvaluator();
   const op = mode === "emboss" ? ADDITION : SUBTRACTION;
 
-  const makeCutter = (glyph: PlacedGlyph) => {
-    const cutter = new Brush(prepareCsgGeometry((glyph.cutter ?? glyph.geometry).clone()));
-    cutter.applyMatrix4(glyph.cutterMatrix ?? glyph.matrix);
-    cutter.updateMatrixWorld();
-    return cutter;
+  const worldCutter = (glyph: PlacedGlyph) => {
+    const geom = prepareCsgGeometry((glyph.cutter ?? glyph.geometry).clone());
+    geom.applyMatrix4(glyph.cutterMatrix ?? glyph.matrix);
+    return geom;
   };
-
-  const body = new Brush(prepareCsgGeometry(build.body.clone()));
-  body.updateMatrixWorld();
 
   const finish = (geom: BufferGeometry) => {
     if (!geom.getAttribute("position") || geom.getAttribute("position")!.count < 3) {
@@ -312,23 +324,29 @@ export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"])
     return geom;
   };
 
+  const body = new Brush(prepareCsgGeometry(build.body.clone()));
+  body.updateMatrixWorld();
+
   try {
-    let tool = makeCutter(build.glyphs[0]);
-    for (let i = 1; i < build.glyphs.length; i++) {
-      tool = evaluator.evaluate(tool, makeCutter(build.glyphs[i]), ADDITION);
-    }
-    const result = evaluator.evaluate(body, tool, op);
-    return finish(result.geometry.clone());
-  } catch {
-    try {
-      let current = body;
-      for (const glyph of build.glyphs) {
-        current = evaluator.evaluate(current, makeCutter(glyph), op);
+    let current = body;
+    const batch = 3;
+    for (let i = 0; i < build.glyphs.length; i += batch) {
+      const parts = build.glyphs.slice(i, i + batch).map(worldCutter);
+      const merged = parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
+      if (merged?.getAttribute("position")) {
+        const tool = new Brush(prepareCsgGeometry(merged));
+        tool.updateMatrixWorld();
+        current = evaluator.evaluate(current, tool, op);
       }
-      return finish(current.geometry.clone());
-    } catch {
-      return build.body.clone();
+      for (const part of parts) {
+        if (part !== merged) part.dispose();
+      }
+      if (parts.length > 1) merged?.dispose();
+      await yieldToMain();
     }
+    return finish(current.geometry.clone());
+  } catch {
+    return build.body.clone();
   }
 }
 

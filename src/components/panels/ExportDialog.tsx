@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Font } from "opentype.js";
 import { STANDARD_RESIN_PLATE } from "../../engine/packPlate";
 import { downloadBlob, exportDieStl, exportPackedPlateStl, exportProjectZip } from "../../engine/stl";
+import { yieldToMain } from "../../engine/buildDie";
 import { useProjectStore } from "../../store/projectStore";
 
 export function ExportDialog({
@@ -38,6 +39,8 @@ export function ExportDialog({
     }
     setBusy(true);
     setError(null);
+    setProgress({ done: 0, total: selected.length, label: selected[0]?.name ?? "" });
+    await yieldToMain();
     try {
       if (mode === "zip") {
         if (selected.length === 1) {
@@ -76,7 +79,7 @@ export function ExportDialog({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={busy ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Export STL masters</h2>
         <p className="help">

@@ -15,7 +15,7 @@ describe("stl print bake", () => {
     it(`bakes ${type} with a position attribute`, async () => {
       const die = createDie(type, "standard");
       const build = await buildDie(die, font, [], 1, "print");
-      const baked = bakeEngraving(build, die.engraveMode);
+      const baked = await bakeEngraving(build, die.engraveMode);
       const pos = baked.getAttribute("position");
       expect(pos).toBeTruthy();
       expect(pos!.count).toBeGreaterThan(8);
