@@ -1,12 +1,14 @@
 import type { DieType, SizeFormatId } from "./types";
 
 /** Characteristic size in millimetres (longest bounding-box axis).
- *  D8 / D10 / D% are also this wide at the equator. */
+ *  D8 / D10 / D% are also this wide at the equator.
+ *  Crystal / teardrop D4s use vertical (pole-to-pole) height. */
 export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
   mini: {
     d2: 16,
     d4: 14,
-    d4crystal: 16,
+    d4crystal: 22,
+    d4teardrop: 22,
     d6: 12,
     d8: 12,
     d10: 12,
@@ -17,7 +19,8 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
   standard: {
     d2: 22,
     d4: 18,
-    d4crystal: 21,
+    d4crystal: 29,
+    d4teardrop: 29,
     d6: 16,
     d8: 16,
     d10: 16,
@@ -28,7 +31,8 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
   chonk: {
     d2: 28,
     d4: 26,
-    d4crystal: 30,
+    d4crystal: 38,
+    d4teardrop: 38,
     d6: 22,
     d8: 22,
     d10: 22,
@@ -39,7 +43,8 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
   giant: {
     d2: 38,
     d4: 36,
-    d4crystal: 40,
+    d4crystal: 52,
+    d4teardrop: 52,
     d6: 32,
     d8: 32,
     d10: 32,
@@ -48,6 +53,26 @@ export const SIZE_CHART: Record<SizeFormatId, Record<DieType, number>> = {
     d20: 42,
   },
 };
+
+/** Vertical heights (mm) and silhouettes from the crystal-kit size chart. */
+export interface CrystalKitPiece {
+  type: DieType;
+  sizeMm: number;
+  name: string;
+}
+
+export const CRYSTAL_KIT_CHART: CrystalKitPiece[] = [
+  { type: "d4crystal", sizeMm: 29, name: "D4 Crystal" },
+  { type: "d4teardrop", sizeMm: 29, name: "D4 Teardrop" },
+  { type: "d4", sizeMm: 20, name: "D4 Caltrop" },
+  { type: "d6", sizeMm: 16, name: "D6 Cube" },
+  { type: "d8", sizeMm: 29, name: "D8 Octahedron" },
+  { type: "d10", sizeMm: 29, name: "D10 Trapezohedron" },
+  { type: "d00", sizeMm: 29, name: "D% Percentile" },
+  { type: "d12", sizeMm: 19, name: "D12 Dodecahedron" },
+  { type: "d20", sizeMm: 26, name: "D20 Icosahedron" },
+  { type: "d20", sizeMm: 45, name: "D20 45mm" },
+];
 
 export const DEFAULT_DEPTH: Record<SizeFormatId, number> = {
   mini: 0.605,

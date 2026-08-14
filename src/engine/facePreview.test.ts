@@ -24,7 +24,7 @@ function isConvex(poly: { x: number; y: number }[]): boolean {
 }
 
 describe("face editor outlines", () => {
-  const types: DieType[] = ["d4", "d6", "d8", "d10", "d00", "d12", "d20"];
+  const types: DieType[] = ["d4", "d4crystal", "d4teardrop", "d6", "d8", "d10", "d00", "d12", "d20"];
 
   for (const type of types) {
     it(`${type} previews as a convex polygon`, () => {
@@ -47,6 +47,15 @@ describe("face editor outlines", () => {
   it("draws D10 faces as kites", () => {
     const die = createDie("d10", "standard");
     for (const face of previewFacesForSet([die])) {
+      expect(face.polygon.length).toBe(4);
+    }
+  });
+
+  it("shows only the four landing faces of a crystal D4", () => {
+    const die = createDie("d4crystal", "standard");
+    const faces = previewFacesForSet([die]);
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
       expect(face.polygon.length).toBe(4);
     }
   });

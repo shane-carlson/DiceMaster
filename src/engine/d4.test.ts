@@ -8,6 +8,7 @@ describe("tetrahedron vertex numerals", () => {
   it("is used only on the regular D4", () => {
     expect(usesVertexNumerals("d4")).toBe(true);
     expect(usesVertexNumerals("d4crystal")).toBe(false);
+    expect(usesVertexNumerals("d4teardrop")).toBe(false);
     expect(usesVertexNumerals("d8")).toBe(false);
   });
 

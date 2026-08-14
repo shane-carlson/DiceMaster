@@ -28,7 +28,9 @@ function projectFace(die: DieInstance): FacePreview[] {
   const vertexLabels = usesVertexNumerals(die.type) ? tetraOppositeVertexLabels(faces) : null;
   geom.dispose();
 
-  return faces.map((face) => {
+  return faces
+    .filter((face) => face.index < die.faces.length)
+    .map((face) => {
     const settings = die.faces[face.index];
     const pts = faceOutline2D(face);
     let marks: FaceMarkPreview[] = [];

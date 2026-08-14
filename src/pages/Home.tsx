@@ -46,7 +46,7 @@ export function Home() {
           </div>
           <div className="stat-row">
             <div>
-              <strong>7</strong>
+              <strong>10</strong>
               Polyhedral shapes
             </div>
             <div>

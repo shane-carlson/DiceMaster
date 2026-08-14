@@ -194,12 +194,23 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
       focusGeneration: s.focusGeneration + 1,
     })),
   focusDieFace: (id, faceIndex) =>
-    set((s) => ({
-      selectedDieId: id,
-      selectedFaceIndex: faceIndex,
-      previewMode: "face",
-      focusGeneration: s.focusGeneration + 1,
-    })),
+    set((s) => {
+      const die = s.project.dice.find((d) => d.id === id);
+      if (!die || faceIndex < 0 || faceIndex >= die.faces.length) {
+        return {
+          selectedDieId: id,
+          selectedFaceIndex: null,
+          previewMode: "die",
+          focusGeneration: s.focusGeneration + 1,
+        };
+      }
+      return {
+        selectedDieId: id,
+        selectedFaceIndex: faceIndex,
+        previewMode: "face",
+        focusGeneration: s.focusGeneration + 1,
+      };
+    }),
   resetView: () =>
     set((s) => ({
       previewMode: "overview",

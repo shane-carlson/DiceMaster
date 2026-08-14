@@ -46,8 +46,24 @@ function scaleHeightToEquator(geometry: BufferGeometry, sizeMm: number): BufferG
   return scaleToSize(geometry, sizeMm);
 }
 
+function scaleUniformToHeight(geometry: BufferGeometry, sizeMm: number): BufferGeometry {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  if (!bb) return geometry;
+  const height = bb.max.y - bb.min.y || 1;
+  const s = sizeMm / height;
+  geometry.scale(s, s, s);
+  geometry.center();
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function hull(points: Vector3[], sizeMm: number): BufferGeometry {
   return scaleToSize(new ConvexGeometry(points.map((p) => p.clone())), sizeMm);
+}
+
+function hullToHeight(points: Vector3[], sizeMm: number): BufferGeometry {
+  return scaleUniformToHeight(new ConvexGeometry(points.map((p) => p.clone())), sizeMm);
 }
 
 function hullEqualHeightAndEquator(points: Vector3[], sizeMm: number): BufferGeometry {
@@ -93,12 +109,13 @@ function dodecahedronVertices(): Vector3[] {
   return pts;
 }
 
+/** Regular tetrahedron sitting on a face, apex up (caltrop). */
 function tetrahedronVertices(): Vector3[] {
   return [
-    new Vector3(1, 1, 1),
-    new Vector3(1, -1, -1),
-    new Vector3(-1, 1, -1),
-    new Vector3(-1, -1, 1),
+    new Vector3(0, 1, 0),
+    new Vector3(Math.sqrt(8 / 9), -1 / 3, 0),
+    new Vector3(-Math.sqrt(2 / 9), -1 / 3, Math.sqrt(2 / 3)),
+    new Vector3(-Math.sqrt(2 / 9), -1 / 3, -Math.sqrt(2 / 3)),
   ];
 }
 
@@ -171,12 +188,35 @@ function planarTrapezohedronRingY(sides: number, peak: number, radius: number): 
   return (lo + hi) / 2;
 }
 
-function crystalTetrahedronVertices(): Vector3[] {
+/** Square prism with pyramidal caps — crystal-cut D4 (lands on 4 long faces). */
+function crystalPrismVertices(): Vector3[] {
+  const peak = 1.85;
+  const ringY = 0.72;
+  const r = 0.38;
   return [
-    new Vector3(0.72, 1.85, 0.72),
-    new Vector3(0.72, -1.85, -0.72),
-    new Vector3(-0.72, 1.85, -0.72),
-    new Vector3(-0.72, -1.85, 0.72),
+    new Vector3(0, peak, 0),
+    new Vector3(0, -peak, 0),
+    new Vector3(r, ringY, r),
+    new Vector3(r, ringY, -r),
+    new Vector3(-r, ringY, r),
+    new Vector3(-r, ringY, -r),
+    new Vector3(r, -ringY, r),
+    new Vector3(r, -ringY, -r),
+    new Vector3(-r, -ringY, r),
+    new Vector3(-r, -ringY, -r),
+  ];
+}
+
+/** Double-ended kite D4: elongated disphenoid (two opposite edges, crossed). */
+function teardropVertices(): Vector3[] {
+  const h = 1.85;
+  const a = 0.72;
+  const b = 0.58;
+  return [
+    new Vector3(a, h, 0),
+    new Vector3(-a, h, 0),
+    new Vector3(0, -h, b),
+    new Vector3(0, -h, -b),
   ];
 }
 
@@ -202,9 +242,11 @@ export function createDieGeometry(type: DieType, sizeMm: number): BufferGeometry
       return geom;
     }
     case "d4":
-      return hull(tetrahedronVertices(), sizeMm);
+      return hullToHeight(tetrahedronVertices(), sizeMm);
     case "d4crystal":
-      return hull(crystalTetrahedronVertices(), sizeMm);
+      return hullToHeight(crystalPrismVertices(), sizeMm);
+    case "d4teardrop":
+      return hullToHeight(teardropVertices(), sizeMm);
     case "d6":
       return hull(cubeVertices(), sizeMm);
     case "d8":

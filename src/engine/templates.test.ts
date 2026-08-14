@@ -23,6 +23,31 @@ describe("templates", () => {
     }
   });
 
+  it("crystal kit uses the catalog heights and silhouettes", () => {
+    const t = templateById("crystal-kit");
+    expect(t).toBeTruthy();
+    const dice = diceFromTemplate(t!);
+    expect(dice.map((d) => [d.type, d.sizeMm, d.name])).toEqual([
+      ["d4crystal", 29, "D4 Crystal"],
+      ["d4teardrop", 29, "D4 Teardrop"],
+      ["d4", 20, "D4 Caltrop"],
+      ["d6", 16, "D6 Cube"],
+      ["d8", 29, "D8 Octahedron"],
+      ["d10", 29, "D10 Trapezohedron"],
+      ["d00", 29, "D% Percentile"],
+      ["d12", 19, "D12 Dodecahedron"],
+      ["d20", 26, "D20 Icosahedron"],
+      ["d20", 45, "D20 45mm"],
+    ]);
+    for (const die of dice) {
+      expect(die.sizeFormat).toBe("custom");
+      const geo = createDieGeometry(die.type, die.sizeMm);
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox!;
+      expect(bb.max.y - bb.min.y).toBeCloseTo(die.sizeMm, 3);
+    }
+  });
+
   it("chonk D20 is oversized versus standard", () => {
     const chonk = createDie("d20", "chonk");
     const standard = createDie("d20", "standard");

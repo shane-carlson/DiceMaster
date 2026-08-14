@@ -17,6 +17,7 @@ export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
       return ["1", "2"];
     case "d4":
     case "d4crystal":
+    case "d4teardrop":
       return ["1", "2", "3", "4"];
     case "d6":
       return ["1", "2", "3", "4", "5", "6"];

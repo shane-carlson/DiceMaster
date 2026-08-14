@@ -242,6 +242,16 @@ export function InspectorPanel() {
           number at the point that stands up.
         </p>
       )}
+      {die.type === "d4crystal" && (
+        <p className="help">
+          Crystal D4s land on the four long prism faces. The pyramidal caps are unnumbered.
+        </p>
+      )}
+      {die.type === "d4teardrop" && (
+        <p className="help">
+          Teardrop D4s are a double-ended kite — one number in the center of each face.
+        </p>
+      )}
       {!face && (
         <p className="help">Click a face on the die to inscribe numbers, crests, or blank it for a logo.</p>
       )}

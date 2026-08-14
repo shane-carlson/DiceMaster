@@ -2,6 +2,7 @@ export type DieType =
   | "d2"
   | "d4"
   | "d4crystal"
+  | "d4teardrop"
   | "d6"
   | "d8"
   | "d10"
@@ -78,6 +79,7 @@ export const DIE_FACE_COUNT: Record<DieType, number> = {
   d2: 2,
   d4: 4,
   d4crystal: 4,
+  d4teardrop: 4,
   d6: 6,
   d8: 8,
   d10: 10,
@@ -90,6 +92,7 @@ export const DIE_LABELS: Record<DieType, string> = {
   d2: "D2 Coin",
   d4: "D4 Tetrahedron",
   d4crystal: "D4 Crystal",
+  d4teardrop: "D4 Teardrop",
   d6: "D6 Cube",
   d8: "D8 Octahedron",
   d10: "D10 Trapezohedron",

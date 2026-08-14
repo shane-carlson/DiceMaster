@@ -34,15 +34,18 @@ function makeFrame(
   const n = normal.clone().normalize();
   let up: Vector3;
 
-  const useLongAxis = type === "d10" || type === "d00" || type === "d4crystal";
+  const useLongAxis =
+    type === "d10" || type === "d00" || type === "d4crystal" || type === "d4teardrop";
   if (useLongAxis && vertices.length >= 3) {
-    // Kite / crystal: point the numeral at the sharp (farthest) vertex.
+    // Kite / crystal: point the numeral at the polar (sharp) vertex.
     let farthest = vertices[0];
-    let best = 0;
+    let best = -Infinity;
     for (const v of vertices) {
-      const d = v.distanceToSquared(center);
-      if (d > best) {
-        best = d;
+      const polar = Math.abs(v.y);
+      const sharp = v.distanceToSquared(center);
+      const score = polar * 1e3 + sharp;
+      if (score > best) {
+        best = score;
         farthest = v;
       }
     }
@@ -200,7 +203,7 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     groups.set(root, list);
   });
 
-  const faces: DieFace[] = [];
+  let faces: DieFace[] = [];
   let i = 0;
   for (const group of groups.values()) {
     const normal = new Vector3();
@@ -247,6 +250,22 @@ export function extractFaces(geometry: BufferGeometry, type: DieType): DieFace[]
     if (Math.abs(dx) > 1e-6) return dx;
     return a.center.z - b.center.z;
   });
+
+  if (type === "d4crystal" && faces.length > 4) {
+    const ranked = [...faces].sort(
+      (a, b) => Math.abs(a.normal.y) - Math.abs(b.normal.y),
+    );
+    const equatorial = ranked
+      .slice(0, 4)
+      .sort(
+        (a, b) =>
+          Math.atan2(a.center.x, a.center.z) - Math.atan2(b.center.x, b.center.z),
+      );
+    const eqSet = new Set(equatorial);
+    const caps = faces.filter((f) => !eqSet.has(f));
+    faces = [...equatorial, ...caps];
+  }
+
   faces.forEach((f, idx) => {
     f.index = idx;
   });

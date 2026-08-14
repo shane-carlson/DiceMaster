@@ -1,4 +1,5 @@
 import { createDie } from "./defaults";
+import { CRYSTAL_KIT_CHART } from "./sizes";
 import type { DieInstance, DieType, SizeFormatId } from "./types";
 
 export const POLYHEDRAL_SET: DieType[] = [
@@ -11,6 +12,12 @@ export const POLYHEDRAL_SET: DieType[] = [
   "d20",
 ];
 
+export interface TemplateDieSpec {
+  type: DieType;
+  sizeMm?: number;
+  name?: string;
+}
+
 export interface SetTemplate {
   id: string;
   name: string;
@@ -18,6 +25,7 @@ export interface SetTemplate {
   description: string;
   format: SizeFormatId;
   types: DieType[];
+  pieces?: TemplateDieSpec[];
   featured?: boolean;
 }
 
@@ -89,18 +97,27 @@ export const SET_TEMPLATES: SetTemplate[] = [
   {
     id: "crystal-kit",
     name: "Crystal Kit",
-    tagline: "Elongated D4 + standard set",
+    tagline: "Chart-scale gems",
     description:
-      "A crystal-cut D4 with the rest of a standard polyhedral set.",
+      "Caltrop, teardrop, and crystal D4s plus the full polyhedral spread at catalog heights — including 26mm and 45mm D20s.",
     format: "standard",
-    types: ["d4crystal", "d6", "d8", "d10", "d00", "d12", "d20"],
+    types: ["d4crystal", "d4teardrop", "d4", "d6", "d8", "d10", "d00", "d12", "d20"],
+    pieces: CRYSTAL_KIT_CHART,
   },
 ];
 
 export function diceFromTemplate(template: SetTemplate): DieInstance[] {
-  return template.types.map((type) => {
-    const die = createDie(type, template.format);
-    if (type === "d00") {
+  const specs: TemplateDieSpec[] =
+    template.pieces ?? template.types.map((type) => ({ type }));
+  return specs.map((spec) => {
+    const extras: Partial<DieInstance> = {};
+    if (spec.sizeMm != null) {
+      extras.sizeMm = spec.sizeMm;
+      extras.sizeFormat = "custom";
+    }
+    if (spec.name) extras.name = spec.name;
+    const die = createDie(spec.type, template.format, extras);
+    if (spec.type === "d00" && !spec.name) {
       die.name = "D% Percentile";
     }
     return die;

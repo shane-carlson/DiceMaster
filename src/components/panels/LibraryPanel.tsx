@@ -7,16 +7,17 @@ import type { DieType, SizeFormatId } from "../../engine/types";
 import { SYMBOLS } from "../../engine/symbols";
 import { useProjectStore } from "../../store/projectStore";
 
-const ADDABLE: DieType[] = [
-  "d2",
-  "d4",
-  "d4crystal",
-  "d6",
-  "d8",
-  "d10",
-  "d00",
-  "d12",
-  "d20",
+const ADDABLE: { type: DieType; label: string }[] = [
+  { type: "d2", label: "D2" },
+  { type: "d4", label: "D4" },
+  { type: "d4crystal", label: "D4C" },
+  { type: "d4teardrop", label: "D4T" },
+  { type: "d6", label: "D6" },
+  { type: "d8", label: "D8" },
+  { type: "d10", label: "D10" },
+  { type: "d00", label: "D%" },
+  { type: "d12", label: "D12" },
+  { type: "d20", label: "D20" },
 ];
 
 export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => void }) {
@@ -70,9 +71,9 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
 
       <h2>Add a die</h2>
       <div className="type-grid">
-        {ADDABLE.map((type) => (
+        {ADDABLE.map(({ type, label }) => (
           <button key={type} className="type-btn" onClick={() => addDie(type, "standard")}>
-            {type.toUpperCase()}
+            {label}
           </button>
         ))}
       </div>

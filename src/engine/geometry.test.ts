@@ -15,11 +15,22 @@ import { faceMatrix } from "./buildDie";
 import { extrudeShapes } from "./glyphs";
 import { DEFAULT_DEPTH } from "./sizes";
 
-const TYPES: DieType[] = ["d4", "d4crystal", "d6", "d8", "d10", "d00", "d12", "d20"];
+const TYPES: DieType[] = [
+  "d4",
+  "d4crystal",
+  "d4teardrop",
+  "d6",
+  "d8",
+  "d10",
+  "d00",
+  "d12",
+  "d20",
+];
 
 const EXPECTED: Record<string, number> = {
   d4: 4,
-  d4crystal: 4,
+  d4crystal: 12,
+  d4teardrop: 4,
   d6: 6,
   d8: 8,
   d10: 10,
@@ -59,6 +70,49 @@ describe("polyhedral geometry", () => {
       expect(height).toBeCloseTo(16, 4);
       expect(equator).toBeCloseTo(height, 4);
     }
+  });
+
+  it("crystal D4 is a prism with pyramidal caps, numbered on four long faces", () => {
+    const geo = createDieGeometry("d4crystal", 29);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    expect(bb.max.y - bb.min.y).toBeCloseTo(29, 4);
+    const faces = extractFaces(geo, "d4crystal");
+    expect(faces).toHaveLength(12);
+    const equatorial = faces.slice(0, 4);
+    const caps = faces.slice(4);
+    for (const face of equatorial) {
+      expect(Math.abs(face.normal.y)).toBeLessThan(0.2);
+      expect(face.vertices.length).toBe(4);
+    }
+    expect(caps).toHaveLength(8);
+    for (const face of caps) {
+      expect(face.vertices.length).toBe(3);
+    }
+    const numbered = numberFaces("d4crystal", faces, "0-9");
+    expect(numbered.slice(0, 4).map((f) => f.label).sort()).toEqual(["1", "2", "3", "4"]);
+    expect(numbered.slice(4).every((f) => f.label === "")).toBe(true);
+  });
+
+  it("teardrop D4 is a double-ended kite at chart height", () => {
+    const geo = createDieGeometry("d4teardrop", 29);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    expect(bb.max.y - bb.min.y).toBeCloseTo(29, 4);
+    const faces = extractFaces(geo, "d4teardrop");
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.vertices.length).toBe(3);
+    }
+  });
+
+  it("caltrop D4 stands point-up at the given height", () => {
+    const geo = createDieGeometry("d4", 20);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    expect(bb.max.y - bb.min.y).toBeCloseTo(20, 4);
+    const faces = extractFaces(geo, "d4");
+    expect(faces).toHaveLength(4);
   });
 });
 
