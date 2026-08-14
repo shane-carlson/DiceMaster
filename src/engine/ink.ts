@@ -11,6 +11,8 @@ export function hexLuminance(hex: string): number {
 export const INK_DARK = "#1a1008";
 export const INK_LIGHT = "#fff8ee";
 export const EMBLEM_INK = "#f0d78a";
+/** Unpainted well floor — same grey on every die so carvings stay readable. */
+export const CARVE_FLOOR = "#b4aea6";
 
 /** WCAG contrast ratio between two hex colors. */
 export function contrastRatio(a: string, b: string): number {
@@ -20,12 +22,11 @@ export function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** High-contrast mark color against a die pigment. */
+/** Preview / editor mark color. Carve floors are grey on every pigment. */
 export function numeralInk(
-  dieColor: string,
+  _dieColor: string,
   role: "primary" | "emblem" | "pip" = "primary",
 ): string {
   if (role === "emblem") return EMBLEM_INK;
-  // Preview lighting underexposes mid-tones; prefer parchment unless the pigment is truly light.
-  return hexLuminance(dieColor) < 0.4 ? INK_LIGHT : INK_DARK;
+  return CARVE_FLOOR;
 }

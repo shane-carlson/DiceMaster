@@ -11,7 +11,15 @@ import type { PlacedGlyph } from "../../engine/buildDie";
 import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
 import { numeralInk } from "../../engine/ink";
 
-function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
+function GlyphMesh({
+  glyph,
+  color,
+  inspectFace,
+}: {
+  glyph: PlacedGlyph;
+  color: string;
+  inspectFace: boolean;
+}) {
   const ref = useRef<ThreeMesh>(null);
 
   useLayoutEffect(() => {
@@ -27,9 +35,10 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
         color={color}
         toneMapped={false}
         depthWrite={false}
+        side={DoubleSide}
         polygonOffset
-        polygonOffsetFactor={-1}
-        polygonOffsetUnits={-12}
+        polygonOffsetFactor={inspectFace ? -2 : -1}
+        polygonOffsetUnits={inspectFace ? -24 : -12}
       />
     </mesh>
   );
@@ -125,6 +134,7 @@ export function DieMesh({
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
           color={numeralInk(color, g.role === "emblem" ? "emblem" : "primary")}
+          inspectFace={inspectFace}
         />
       ))}
       {highlight && (
