@@ -38,8 +38,10 @@ export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
 
 export const DEFAULT_GLYPH_SCALE = 1;
 export const DEFAULT_EMBLEM_SCALE = 0.42;
+export const DEFAULT_EMBLEM_OFFSET_Y = 0.58;
 export const DEFAULT_FONT_SCALE = 1;
 export const DEFAULT_GLOBAL_FONT_SCALE = 1;
+export const DEFAULT_CORNER_ROUNDING = 0.18;
 
 export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
   return {
@@ -48,7 +50,7 @@ export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
     symbolId: kind === "symbol" ? id : null,
     logoId: kind === "logo" ? id : null,
     offsetX: 0,
-    offsetY: 0.58,
+    offsetY: DEFAULT_EMBLEM_OFFSET_Y,
     rotation: 0,
     scale: DEFAULT_EMBLEM_SCALE,
     depth: null,
@@ -92,7 +94,7 @@ export function createDie(
     name: DIE_LABELS[type],
     sizeMm: sizeFor(type, format),
     sizeFormat: format,
-    cornerRounding: 0.18,
+    cornerRounding: DEFAULT_CORNER_ROUNDING,
     engravingDepth: defaultCarveDepth(format),
     fontScale: DEFAULT_FONT_SCALE,
     color: DIE_COLORS[colorIndex % DIE_COLORS.length],
@@ -130,4 +132,33 @@ export function ensureFaceCount(die: DieInstance): DieInstance {
     next[i] = die.faces[i];
   }
   return { ...die, faces: next };
+}
+
+export function resetGlyphPlacement(
+  glyph: GlyphSettings,
+  role: "primary" | "emblem",
+): GlyphSettings {
+  const confused = glyph.kind === "number" && (glyph.text === "6" || glyph.text === "9");
+  return {
+    ...glyph,
+    offsetX: 0,
+    offsetY: role === "emblem" ? DEFAULT_EMBLEM_OFFSET_Y : 0,
+    rotation: 0,
+    scale: role === "emblem" ? DEFAULT_EMBLEM_SCALE : DEFAULT_GLYPH_SCALE,
+    depth: null,
+    underscore: confused,
+  };
+}
+
+/** Restore inspector sliders and option chips; keep type, name, and face inscriptions. */
+export function resetDieSliders(die: DieInstance): DieInstance {
+  const format: SizeFormatId = die.sizeFormat === "custom" ? "standard" : die.sizeFormat;
+  const fresh = createDie(die.type, format, { id: die.id, name: die.name });
+  return {
+    ...fresh,
+    faces: die.faces.map((face) => ({
+      primary: resetGlyphPlacement(face.primary, "primary"),
+      emblem: face.emblem ? resetGlyphPlacement(face.emblem, "emblem") : null,
+    })),
+  };
 }
