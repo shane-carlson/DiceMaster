@@ -1,4 +1,4 @@
-import { createDie } from "./defaults";
+import { createDie, DEFAULT_CORNER_ROUNDING } from "./defaults";
 import { CRYSTAL_KIT_CHART } from "./sizes";
 import type { DieInstance, DieType, SizeFormatId } from "./types";
 
@@ -117,6 +117,7 @@ export function diceFromTemplate(template: SetTemplate): DieInstance[] {
     }
     if (spec.name) extras.name = spec.name;
     const die = createDie(spec.type, template.format, extras);
+    die.cornerRounding = DEFAULT_CORNER_ROUNDING;
     if (spec.type === "d00" && !spec.name) {
       die.name = "D% Percentile";
     }

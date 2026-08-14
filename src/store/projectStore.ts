@@ -9,7 +9,7 @@ import {
   resetDieSliders,
 } from "../engine/defaults";
 import { uid } from "../engine/id";
-import { loadLocal, saveLocal } from "../engine/projectIO";
+import { loadLocal, saveLocal, normalizeProject } from "../engine/projectIO";
 import { diceFromTemplate, templateById } from "../engine/templates";
 import { defaultCarveDepth } from "../engine/carve";
 import type {
@@ -106,6 +106,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
       set({ selectedDieId: current.dice[0]?.id ?? null, selectedFaceIndex: null });
       return;
     }
+    persist(local);
     set({
       project: local,
       selectedDieId: local.dice[0]?.id ?? null,
@@ -406,8 +407,9 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
     }),
 
   replaceProject: (project) => {
-    persist(project);
-    set({ project, selectedDieId: project.dice[0]?.id ?? null, selectedFaceIndex: null });
+    const next = normalizeProject(project);
+    persist(next);
+    set({ project: next, selectedDieId: next.dice[0]?.id ?? null, selectedFaceIndex: null });
   },
 
   resetProject: () => {
