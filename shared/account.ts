@@ -1,11 +1,60 @@
 import type { Project } from "../src/engine/types";
 
+export type UserRole = "user" | "admin";
+
 export type PublicUser = {
   id: string;
   email: string;
   displayName: string;
   createdAt: number;
+  role: UserRole;
 };
+
+export type AdminUser = PublicUser & {
+  disabled: boolean;
+  updatedAt: number;
+  setCount: number;
+};
+
+export type AnnouncementTone = "info" | "gold" | "alert";
+
+export type Announcement = {
+  id: string;
+  message: string;
+  tone: AnnouncementTone;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SiteFontGroup = "print" | "fantasy" | "scifi" | "gamer";
+
+export type SiteFont = {
+  id: string;
+  name: string;
+  mood: string;
+  group: SiteFontGroup;
+  file: string;
+};
+
+export type SiteSymbol = {
+  id: string;
+  name: string;
+  category: string;
+  viewBox: number;
+  path: string;
+};
+
+export type PublicCatalog = {
+  announcements: Announcement[];
+  hiddenFontIds: string[];
+  extraFonts: SiteFont[];
+  hiddenSymbolIds: string[];
+  extraSymbols: SiteSymbol[];
+};
+
+export const DEFAULT_ADMIN_EMAIL = "admin@dicemaster.local";
+export const DEFAULT_ADMIN_PASSWORD = "ForgeMaster#1";
 
 export type WorkshopPreviewMode = "overview" | "die" | "face";
 

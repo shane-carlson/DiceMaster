@@ -16,6 +16,11 @@ export function UserLinks({ gold = false }: { gold?: boolean }) {
         {saveStatus === "saving" && <span className="save-pill">Saving…</span>}
         {saveStatus === "saved" && <span className="save-pill">Vault synced</span>}
         {saveStatus === "error" && <span className="save-pill save-pill-warn">Vault offline</span>}
+        {user.role === "admin" && (
+          <Link to="/admin" className="btn btn-small">
+            Admin
+          </Link>
+        )}
         <Link to="/account" className={gold ? "btn btn-gold btn-small" : "btn btn-small"}>
           {user.displayName}
         </Link>

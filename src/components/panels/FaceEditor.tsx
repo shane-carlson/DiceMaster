@@ -8,6 +8,7 @@ import { DEFAULT_EMBLEM_SCALE, DEFAULT_GLOBAL_FONT_SCALE, makeEmblem } from "../
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
+import { useCatalogStore } from "../../store/catalogStore";
 import { useProjectStore } from "../../store/projectStore";
 
 const TOOLS: { id: FaceKind | "copy" | "copyAll" | "addMark"; label: string }[] = [
@@ -110,6 +111,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
   const revealInspector = useProjectStore((s) => s.revealInspector);
   const fontRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState<{ dieId: string; faceIndex: number } | null>(null);
+  useCatalogStore((s) => s.revision);
 
   const faces = useMemo(() => previewFacesForSet(project.dice), [project.dice]);
   const selectedDie = project.dice.find((d) => d.id === selectedDieId);

@@ -1,12 +1,18 @@
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type {
+  AdminUser,
+  Announcement,
   AssetKind,
   AssetRecord,
   AssetSummary,
   PublicUser,
   SavedSetRecord,
   SavedSetSummary,
+  SiteFont,
+  SiteFontGroup,
+  SiteSymbol,
+  UserRole,
   UserSettings,
   WorkspacePayload,
   WorkspaceSession,
@@ -16,6 +22,27 @@ import { DEFAULT_SESSION, DEFAULT_SETTINGS } from "../shared/account";
 export type UserRecord = PublicUser & {
   passwordHash: string;
   updatedAt: number;
+  disabled: boolean;
+};
+
+export type CatalogFontRecord = SiteFont & {
+  mime: string;
+  data: string;
+  createdAt: number;
+};
+
+export type LibraryState = {
+  hiddenFontIds: string[];
+  extraFonts: CatalogFontRecord[];
+  hiddenSymbolIds: string[];
+  extraSymbols: SiteSymbol[];
+};
+
+const EMPTY_LIBRARY: LibraryState = {
+  hiddenFontIds: [],
+  extraFonts: [],
+  hiddenSymbolIds: [],
+  extraSymbols: [],
 };
 
 export type SessionRecord = {
@@ -49,6 +76,16 @@ function publicUser(user: UserRecord): PublicUser {
     email: user.email,
     displayName: user.displayName,
     createdAt: user.createdAt,
+    role: user.role ?? "user",
+  };
+}
+
+function normalizeUser(raw: UserRecord | null): UserRecord | null {
+  if (!raw) return null;
+  return {
+    ...raw,
+    role: raw.role ?? "user",
+    disabled: Boolean(raw.disabled),
   };
 }
 
@@ -81,7 +118,12 @@ export class FileVault {
     return Date.now();
   }
 
-  createUser(input: { email: string; displayName: string; passwordHash: string }): UserRecord {
+  createUser(input: {
+    email: string;
+    displayName: string;
+    passwordHash: string;
+    role?: UserRole;
+  }): UserRecord {
     const email = input.email.toLowerCase();
     const emails = readJson<EmailIndex>(this.emailsPath(), {});
     if (emails[email]) {
@@ -95,6 +137,8 @@ export class FileVault {
       passwordHash: input.passwordHash,
       createdAt: now,
       updatedAt: now,
+      role: input.role ?? "user",
+      disabled: false,
     };
     emails[email] = user.id;
     writeJson(this.emailsPath(), emails);
@@ -109,7 +153,7 @@ export class FileVault {
   }
 
   getUser(id: string): UserRecord | null {
-    return readJson<UserRecord | null>(this.accountPath(id), null);
+    return normalizeUser(readJson<UserRecord | null>(this.accountPath(id), null));
   }
 
   findUserByEmail(email: string): UserRecord | null {
@@ -118,7 +162,10 @@ export class FileVault {
     return id ? this.getUser(id) : null;
   }
 
-  updateUser(id: string, patch: Partial<Pick<UserRecord, "displayName" | "email" | "passwordHash">>): UserRecord {
+  updateUser(
+    id: string,
+    patch: Partial<Pick<UserRecord, "displayName" | "email" | "passwordHash" | "role" | "disabled">>,
+  ): UserRecord {
     const user = this.getUser(id);
     if (!user) {
       throw Object.assign(new Error("Account not found."), { status: 404 });
@@ -136,6 +183,8 @@ export class FileVault {
     }
     if (patch.displayName) user.displayName = patch.displayName;
     if (patch.passwordHash) user.passwordHash = patch.passwordHash;
+    if (patch.role) user.role = patch.role;
+    if (patch.disabled !== undefined) user.disabled = patch.disabled;
     user.updatedAt = this.now();
     writeJson(this.accountPath(id), user);
     return user;
@@ -283,5 +332,189 @@ export class FileVault {
     } catch {
       return false;
     }
+  }
+
+  ensureAdmin(input: { email: string; displayName: string; passwordHash: string }) {
+    if (this.findUserByEmail(input.email)) return;
+    this.createUser({ ...input, role: "admin" });
+  }
+
+  listUsers(): AdminUser[] {
+    const emails = readJson<EmailIndex>(this.emailsPath(), {});
+    return Object.values(emails)
+      .map((id) => this.getUser(id))
+      .filter((u): u is UserRecord => Boolean(u))
+      .map((u) => ({
+        ...publicUser(u),
+        disabled: u.disabled,
+        updatedAt: u.updatedAt,
+        setCount: this.listSets(u.id).length,
+      }))
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  enabledAdminCount(exceptId?: string): number {
+    return this.listUsers().filter((u) => u.role === "admin" && !u.disabled && u.id !== exceptId).length;
+  }
+
+  deleteSessionsForUser(userId: string) {
+    const sessions = readJson<SessionIndex>(this.sessionsPath(), {});
+    let changed = false;
+    for (const [id, session] of Object.entries(sessions)) {
+      if (session.userId === userId) {
+        delete sessions[id];
+        changed = true;
+      }
+    }
+    if (changed) writeJson(this.sessionsPath(), sessions);
+  }
+
+  deleteUser(id: string): boolean {
+    const user = this.getUser(id);
+    if (!user) return false;
+    const emails = readJson<EmailIndex>(this.emailsPath(), {});
+    delete emails[user.email];
+    writeJson(this.emailsPath(), emails);
+    this.deleteSessionsForUser(id);
+    rmSync(this.userDir(id), { recursive: true, force: true });
+    return true;
+  }
+
+  private announcementsPath() {
+    return join(this.metaDir, "announcements.json");
+  }
+
+  listAnnouncements(): Announcement[] {
+    return readJson<Announcement[]>(this.announcementsPath(), []).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  putAnnouncement(row: Announcement): Announcement {
+    const list = this.listAnnouncements();
+    const idx = list.findIndex((a) => a.id === row.id);
+    const next = { ...row, updatedAt: this.now() };
+    if (idx >= 0) list[idx] = next;
+    else list.unshift(next);
+    writeJson(this.announcementsPath(), list);
+    return next;
+  }
+
+  deleteAnnouncement(id: string): boolean {
+    const list = this.listAnnouncements();
+    const next = list.filter((a) => a.id !== id);
+    if (next.length === list.length) return false;
+    writeJson(this.announcementsPath(), next);
+    return true;
+  }
+
+  private libraryPath() {
+    return join(this.metaDir, "library.json");
+  }
+
+  getLibrary(): LibraryState {
+    const raw = readJson<Partial<LibraryState>>(this.libraryPath(), EMPTY_LIBRARY);
+    return {
+      hiddenFontIds: raw.hiddenFontIds ?? [],
+      extraFonts: raw.extraFonts ?? [],
+      hiddenSymbolIds: raw.hiddenSymbolIds ?? [],
+      extraSymbols: raw.extraSymbols ?? [],
+    };
+  }
+
+  putLibrary(patch: Partial<LibraryState>): LibraryState {
+    const current = this.getLibrary();
+    const next: LibraryState = {
+      hiddenFontIds: patch.hiddenFontIds ?? current.hiddenFontIds,
+      extraFonts: patch.extraFonts ?? current.extraFonts,
+      hiddenSymbolIds: patch.hiddenSymbolIds ?? current.hiddenSymbolIds,
+      extraSymbols: patch.extraSymbols ?? current.extraSymbols,
+    };
+    writeJson(this.libraryPath(), next);
+    return next;
+  }
+
+  publicCatalog(): {
+    announcements: Announcement[];
+    hiddenFontIds: string[];
+    extraFonts: SiteFont[];
+    hiddenSymbolIds: string[];
+    extraSymbols: SiteSymbol[];
+  } {
+    const library = this.getLibrary();
+    return {
+      announcements: this.listAnnouncements().filter((a) => a.active),
+      hiddenFontIds: library.hiddenFontIds,
+      extraFonts: library.extraFonts.map(({ id, name, mood, group }) => ({
+        id,
+        name,
+        mood,
+        group,
+        file: `/api/catalog/fonts/${id}`,
+      })),
+      hiddenSymbolIds: library.hiddenSymbolIds,
+      extraSymbols: library.extraSymbols,
+    };
+  }
+
+  getCatalogFont(id: string): CatalogFontRecord | null {
+    return this.getLibrary().extraFonts.find((f) => f.id === id) ?? null;
+  }
+
+  addCatalogFont(input: {
+    name: string;
+    mood: string;
+    group: SiteFontGroup;
+    mime: string;
+    data: string;
+  }): CatalogFontRecord {
+    const library = this.getLibrary();
+    const row: CatalogFontRecord = {
+      id: `site-${crypto.randomUUID()}`,
+      name: input.name,
+      mood: input.mood,
+      group: input.group,
+      file: "",
+      mime: input.mime,
+      data: input.data,
+      createdAt: this.now(),
+    };
+    row.file = `/api/catalog/fonts/${row.id}`;
+    this.putLibrary({ extraFonts: [row, ...library.extraFonts] });
+    return row;
+  }
+
+  deleteCatalogFont(id: string): boolean {
+    const library = this.getLibrary();
+    const extraFonts = library.extraFonts.filter((f) => f.id !== id);
+    if (extraFonts.length === library.extraFonts.length) return false;
+    this.putLibrary({ extraFonts });
+    return true;
+  }
+
+  addCatalogSymbol(symbol: SiteSymbol): SiteSymbol {
+    const library = this.getLibrary();
+    if (library.extraSymbols.some((s) => s.id === symbol.id)) {
+      throw Object.assign(new Error("A symbol with that id already exists."), { status: 409 });
+    }
+    this.putLibrary({ extraSymbols: [...library.extraSymbols, symbol] });
+    return symbol;
+  }
+
+  updateCatalogSymbol(id: string, patch: Partial<SiteSymbol>): SiteSymbol | null {
+    const library = this.getLibrary();
+    const idx = library.extraSymbols.findIndex((s) => s.id === id);
+    if (idx < 0) return null;
+    const next = { ...library.extraSymbols[idx], ...patch, id };
+    const extraSymbols = library.extraSymbols.slice();
+    extraSymbols[idx] = next;
+    this.putLibrary({ extraSymbols });
+    return next;
+  }
+
+  deleteCatalogSymbol(id: string): boolean {
+    const library = this.getLibrary();
+    const extraSymbols = library.extraSymbols.filter((s) => s.id !== id);
+    if (extraSymbols.length === library.extraSymbols.length) return false;
+    this.putLibrary({ extraSymbols });
+    return true;
   }
 }

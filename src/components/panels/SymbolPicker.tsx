@@ -1,4 +1,5 @@
 import { symbolsByCategory } from "../../engine/symbols";
+import { useCatalogStore } from "../../store/catalogStore";
 
 export function SymbolSelect({
   value,
@@ -7,6 +8,7 @@ export function SymbolSelect({
   value: string;
   onChange: (id: string) => void;
 }) {
+  useCatalogStore((s) => s.revision);
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)}>
       {symbolsByCategory().map((group) => (

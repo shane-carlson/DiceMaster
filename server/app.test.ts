@@ -198,3 +198,110 @@ describe("account API", () => {
     expect(me.status).toBe(401);
   });
 });
+
+describe("admin console API", () => {
+  let dir: string;
+  let app: ReturnType<typeof createApp>;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "dm-admin-"));
+    app = createApp(new FileVault(dir));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  async function adminCookie() {
+    const res = await app.request("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "admin@dicemaster.local", password: "ForgeMaster#1" }),
+    });
+    expect(res.status).toBe(200);
+    return cookieFrom(res);
+  }
+
+  it("seeds an administrator and rejects a regular user from the console", async () => {
+    const cookie = await adminCookie();
+    const users = await (await app.request("/api/admin/users", { headers: { cookie } })).json();
+    expect(users.users.some((u: { role: string }) => u.role === "admin")).toBe(true);
+
+    const signup = await app.request("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "player@example.com",
+        password: "obsidian8",
+        displayName: "Player",
+      }),
+    });
+    const player = cookieFrom(signup);
+    const denied = await app.request("/api/admin/users", { headers: { cookie: player } });
+    expect(denied.status).toBe(403);
+
+    const notAdmin = await app.request("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "player@example.com", password: "obsidian8" }),
+    });
+    expect(notAdmin.status).toBe(403);
+  });
+
+  it("creates, disables, and lists users", async () => {
+    const cookie = await adminCookie();
+    const created = await app.request("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({
+        email: "smith@example.com",
+        password: "anvilhead",
+        displayName: "Smith",
+        role: "user",
+      }),
+    });
+    expect(created.status).toBe(201);
+    const { user } = await created.json();
+    const disabled = await app.request(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ disabled: true }),
+    });
+    expect(disabled.status).toBe(200);
+    const login = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "smith@example.com", password: "anvilhead" }),
+    });
+    expect(login.status).toBe(403);
+  });
+
+  it("publishes banners and catalog fonts/symbols for everyone", async () => {
+    const cookie = await adminCookie();
+    const banner = await app.request("/api/admin/announcements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ message: "Vat is hot tonight.", tone: "gold" }),
+    });
+    expect(banner.status).toBe(201);
+    const publicBanners = await (await app.request("/api/announcements")).json();
+    expect(publicBanners.announcements[0].message).toBe("Vat is hot tonight.");
+
+    await app.request("/api/admin/library/hidden", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ hiddenFontIds: ["oswald"], hiddenSymbolIds: ["star"] }),
+    });
+    const symbol = await app.request("/api/admin/library/symbols", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({ name: "Rune", category: "Marks", path: "M0 0 L10 10" }),
+    });
+    expect(symbol.status).toBe(201);
+    const catalog = await (await app.request("/api/catalog")).json();
+    expect(catalog.hiddenFontIds).toContain("oswald");
+    expect(catalog.hiddenSymbolIds).toContain("star");
+    expect(catalog.extraSymbols.some((s: { id: string }) => s.id === "rune")).toBe(true);
+    expect(catalog.announcements).toHaveLength(1);
+  });
+});

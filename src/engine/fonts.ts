@@ -1,4 +1,5 @@
 import type { Font } from "opentype.js";
+import { getLibraryOverlay } from "./libraryOverlay";
 
 export type FontGroupId = "print" | "fantasy" | "scifi" | "gamer";
 
@@ -280,10 +281,31 @@ export const BUILTIN_FONTS: FontOption[] = [
 ];
 
 export function fontsByGroup(): { id: FontGroupId; label: string; fonts: FontOption[] }[] {
+  const overlay = getLibraryOverlay();
+  const hidden = new Set(overlay.hiddenFontIds);
+  const fonts: FontOption[] = [
+    ...BUILTIN_FONTS.filter((f) => !hidden.has(f.id)),
+    ...overlay.extraFonts.map((f) => ({
+      id: f.id,
+      name: f.name,
+      file: f.file,
+      mood: f.mood,
+      group: f.group,
+    })),
+  ];
   return FONT_GROUPS.map((group) => ({
     ...group,
-    fonts: BUILTIN_FONTS.filter((f) => f.group === group.id),
+    fonts: fonts.filter((f) => f.group === group.id),
   })).filter((g) => g.fonts.length > 0);
+}
+
+export function fontOptionById(id: string): FontOption | undefined {
+  const overlay = getLibraryOverlay();
+  const extra = overlay.extraFonts.find((f) => f.id === id);
+  if (extra) {
+    return { id: extra.id, name: extra.name, file: extra.file, mood: extra.mood, group: extra.group };
+  }
+  return BUILTIN_FONTS.find((f) => f.id === id);
 }
 
 const cache = new Map<string, Promise<Font>>();
@@ -298,7 +320,7 @@ async function parseFontBuffer(buffer: ArrayBuffer): Promise<Font> {
 }
 
 export function loadBuiltinFont(id: string): Promise<Font> {
-  const option = BUILTIN_FONTS.find((f) => f.id === id) ?? BUILTIN_FONTS[0];
+  const option = fontOptionById(id) ?? BUILTIN_FONTS[0];
   const key = `builtin:${option.id}`;
   const hit = cache.get(key);
   if (hit) return hit;

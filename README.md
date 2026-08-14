@@ -47,6 +47,23 @@ This starts the workshop on port 5173 and the account API on port 8787 (`/api` i
 
 Guest mode still works offline. Creating an account copies the current local set into the vault.
 
+## Admin console
+
+First boot creates an administrator:
+
+- Email: `admin@dicemaster.local`
+- Password: `ForgeMaster#1`
+
+Open `/admin/login` (or the **Admin** button once signed in). Change that password immediately. Override the seed with `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first start.
+
+The console can:
+
+- Create, disable, promote, and delete user accounts
+- Publish banner announcements visible to every visitor
+- Hide or add site-wide fonts (TTF/OTF) and symbols (SVG paths)
+
+Hidden bundled faces stay off the picker but still render on existing dice.
+
 ## Fonts
 
 Bundled typefaces are licensed under the SIL Open Font License (37 faces):

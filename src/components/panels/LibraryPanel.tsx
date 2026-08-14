@@ -6,6 +6,7 @@ import { SET_TEMPLATES } from "../../engine/templates";
 import type { DieType, GlyphSettings, SizeFormatId } from "../../engine/types";
 import { symbolsByCategory, SYMBOL_CREDIT } from "../../engine/symbols";
 import { useAuthStore } from "../../store/authStore";
+import { useCatalogStore } from "../../store/catalogStore";
 import { useProjectStore } from "../../store/projectStore";
 import { api } from "../../api/client";
 import type { AssetSummary, SavedSetSummary } from "../../../shared/account";
@@ -45,6 +46,7 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
   const savedPlaceMode = useAuthStore((s) => s.settings.placeMode);
   const [vaultSets, setVaultSets] = useState<SavedSetSummary[]>([]);
   const [vaultAssets, setVaultAssets] = useState<AssetSummary[]>([]);
+  useCatalogStore((s) => s.revision);
 
   const placeModeActive = signedIn ? savedPlaceMode : placeMode;
   const setPlaceMode = (mode: "add" | "replace") => {

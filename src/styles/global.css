@@ -1107,3 +1107,62 @@ img {
     grid-template-columns: 1fr;
   }
 }
+
+.site-banners {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.site-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 7vw;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+
+.site-banner p {
+  margin: 0;
+}
+
+.site-banner-gold {
+  background: #3a2c16;
+  color: var(--gold-2);
+}
+
+.site-banner-info {
+  background: #1a2430;
+  color: #d5e4f5;
+}
+
+.site-banner-alert {
+  background: #3a1614;
+  color: #f0b4a8;
+}
+
+.banner-dismiss {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.admin-grid .kind-tabs {
+  margin: 16px 0;
+}
+
+.admin-symbol-preview {
+  width: 64px;
+  height: 64px;
+  color: var(--gold-2);
+  margin: 8px 0 16px;
+}
+
+code {
+  font-size: 0.88em;
+}

@@ -1,3 +1,5 @@
+import { getLibraryOverlay } from "./libraryOverlay";
+
 export interface SymbolDef {
   id: string;
   name: string;
@@ -403,18 +405,31 @@ export const SYMBOLS: SymbolDef[] = [
 ];
 
 export function symbolById(id: string): SymbolDef | undefined {
+  const overlay = getLibraryOverlay();
+  const extra = overlay.extraSymbols.find((s) => s.id === id);
+  if (extra) return extra;
   return SYMBOLS.find((s) => s.id === id);
 }
 
 export function symbolsByCategory(): { category: string; symbols: SymbolDef[] }[] {
-  const order = SYMBOL_GROUPS.map((g) => g.label);
+  const overlay = getLibraryOverlay();
+  const hidden = new Set(overlay.hiddenSymbolIds);
+  const visible = [...SYMBOLS.filter((s) => !hidden.has(s.id)), ...overlay.extraSymbols];
+  const order = [
+    ...SYMBOL_GROUPS.map((g) => g.label),
+    ...overlay.extraSymbols.map((s) => s.category).filter((c) => !SYMBOL_GROUPS.some((g) => g.label === c)),
+  ];
   const map = new Map<string, SymbolDef[]>();
-  for (const symbol of SYMBOLS) {
+  for (const symbol of visible) {
     const list = map.get(symbol.category) ?? [];
     list.push(symbol);
     map.set(symbol.category, list);
   }
   return [...map.entries()]
-    .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+    .sort((a, b) => {
+      const ai = order.indexOf(a[0]);
+      const bi = order.indexOf(b[0]);
+      return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+    })
     .map(([category, symbols]) => ({ category, symbols }));
 }
