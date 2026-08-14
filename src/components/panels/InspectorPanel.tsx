@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { DIE_COLORS, DIE_LABELS, type FaceKind, type SizeFormatId } from "../../engine/types";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
 import { makeEmblem } from "../../engine/defaults";
+import { GlyphPlace } from "./GlyphPlace";
+import { Slider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
 
 const KINDS: { id: FaceKind; label: string }[] = [
@@ -11,63 +14,231 @@ const KINDS: { id: FaceKind; label: string }[] = [
   { id: "blank", label: "Blank" },
 ];
 
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  suffix = "",
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (n: number) => void;
-  suffix?: string;
-}) {
-  return (
-    <div className="field">
-      <div className="field-row">
-        <label>{label}</label>
-        <span>
-          {Number.isInteger(step) ? value : value.toFixed(2)}
-          {suffix}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </div>
-  );
-}
-
 export function InspectorPanel() {
   const state = useProjectStore();
   const die = selectedDie(state);
   const face = die && state.selectedFaceIndex !== null ? die.faces[state.selectedFaceIndex] : null;
+  const faceNo = state.selectedFaceIndex;
+  const reveal = state.inspectorFocusGeneration;
+
+  useEffect(() => {
+    if (!reveal) return;
+    const panel = document.getElementById("inspector-panel");
+    const faceEl = document.getElementById("inspector-face");
+    panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    panel?.classList.remove("panel-reveal");
+    void panel?.offsetWidth;
+    panel?.classList.add("panel-reveal");
+    faceEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [reveal]);
 
   if (!die) {
     return (
-      <aside className="panel panel-right">
+      <aside id="inspector-panel" className="panel panel-right">
         <h2>Inspector</h2>
         <p className="help">Choose a die from the vault, or summon one from a template.</p>
       </aside>
     );
   }
 
-  const faceNo = state.selectedFaceIndex;
-
   return (
-    <aside className="panel panel-right">
-      <h2>Die</h2>
+    <aside id="inspector-panel" className="panel panel-right">
+      <h2>Inspector</h2>
+      <p className="help">
+        {die.name} · {die.type.toUpperCase()}. Click a face on the die or in Face editor, then
+        resize and move marks here.
+      </p>
+
+      <h3 id="inspector-face">Face {faceNo === null ? "" : faceNo + 1}</h3>
+      {die.type === "d4" && (
+        <p className="help">
+          Tetrahedron D4s carry three numbers per face, one at each vertex. After a roll, read the
+          number at the point that stands up.
+        </p>
+      )}
+      {die.type === "d4crystal" && (
+        <p className="help">
+          Crystal D4s land on the four long prism faces. The pyramidal caps are unnumbered.
+        </p>
+      )}
+      {die.type === "d4teardrop" && (
+        <p className="help">
+          Teardrop D4s land on four long triangular faces (~80% of the length). The short
+          four-sided cap is unnumbered; numerals point toward the cap.
+        </p>
+      )}
+      {!face && (
+        <p className="help">
+          Click a face on the die (or open Face editor) to inscribe numbers, add a symbol beside
+          them, or replace the number with a crest.
+        </p>
+      )}
+      {face && faceNo !== null && (
+        <>
+          <p className="help">Primary mark</p>
+          <div className="kind-tabs">
+            {KINDS.map((k) => (
+              <button
+                key={k.id}
+                className={`chip ${face.primary.kind === k.id ? "active" : ""}`}
+                onClick={() => state.setFaceKind(die.id, faceNo, "primary", k.id)}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          {(face.primary.kind === "text" ||
+            (face.primary.kind === "number" && die.type !== "d4")) && (
+            <div className="field">
+              <label>Inscription</label>
+              <input
+                type="text"
+                value={face.primary.text}
+                onChange={(e) =>
+                  state.updateFaceGlyph(die.id, faceNo, "primary", { text: e.target.value })
+                }
+              />
+            </div>
+          )}
+          {face.primary.kind === "symbol" && (
+            <div className="field">
+              <label>Symbol</label>
+              <SymbolSelect
+                value={face.primary.symbolId ?? "star"}
+                onChange={(id) =>
+                  state.updateFaceGlyph(die.id, faceNo, "primary", { symbolId: id })
+                }
+              />
+            </div>
+          )}
+          {face.primary.kind === "logo" && (
+            <div className="field">
+              <label>Logo</label>
+              <select
+                value={face.primary.logoId ?? ""}
+                onChange={(e) =>
+                  state.updateFaceGlyph(die.id, faceNo, "primary", { logoId: e.target.value })
+                }
+              >
+                <option value="">Choose upload…</option>
+                {state.project.logos.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <GlyphPlace
+            glyph={face.primary}
+            sizeMin={0.3}
+            sizeMax={2.2}
+            onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "primary", patch)}
+          />
+          <div className="field">
+            <label>
+              <input
+                type="checkbox"
+                checked={face.primary.underscore}
+                onChange={(e) =>
+                  state.updateFaceGlyph(die.id, faceNo, "primary", { underscore: e.target.checked })
+                }
+              />{" "}
+              Underscore (6 / 9)
+            </label>
+          </div>
+          <button className="btn btn-small" onClick={() => state.copyFaceToAll(die.id, faceNo)}>
+            Copy placement to every face
+          </button>
+
+          <h3 id="inspector-emblem">Symbol or logo on this face</h3>
+          <p className="help">
+            Sits beside the number. Size and move it here. To swap the number for a symbol, use
+            the tabs above.
+          </p>
+          {!face.emblem && (
+            <button
+              className="btn btn-small"
+              onClick={() =>
+                state.updateFaceGlyph(die.id, faceNo, "emblem", makeEmblem("symbol", "star"))
+              }
+            >
+              Add symbol
+            </button>
+          )}
+          {face.emblem && (
+            <>
+              <div className="kind-tabs">
+                {KINDS.filter((k) => k.id === "symbol" || k.id === "logo").map((k) => (
+                  <button
+                    key={k.id}
+                    className={`chip ${face.emblem?.kind === k.id ? "active" : ""}`}
+                    onClick={() => state.setFaceKind(die.id, faceNo, "emblem", k.id)}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+              {face.emblem.kind === "symbol" && (
+                <div className="field">
+                  <label>Symbol</label>
+                  <SymbolSelect
+                    value={face.emblem.symbolId ?? "star"}
+                    onChange={(id) =>
+                      state.updateFaceGlyph(die.id, faceNo, "emblem", { symbolId: id })
+                    }
+                  />
+                </div>
+              )}
+              {face.emblem.kind === "logo" && (
+                <div className="field">
+                  <label>Logo</label>
+                  <select
+                    value={face.emblem.logoId ?? ""}
+                    onChange={(e) =>
+                      state.updateFaceGlyph(die.id, faceNo, "emblem", { logoId: e.target.value })
+                    }
+                  >
+                    <option value="">Choose upload…</option>
+                    {state.project.logos.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <GlyphPlace
+                glyph={face.emblem}
+                onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
+              />
+              <button
+                className="btn btn-small"
+                onClick={() => state.updateFaceGlyph(die.id, faceNo, "emblem", null)}
+              >
+                Remove symbol
+              </button>
+            </>
+          )}
+
+          <h3>Quick rites</h3>
+          <button
+            className="btn btn-small"
+            onClick={() => state.applyEmblemToHighest(die.id, makeEmblem("symbol", "dragon"))}
+          >
+            Dragon on the highest face
+          </button>
+          <button
+            className="btn btn-small"
+            style={{ marginTop: 6 }}
+            onClick={() => state.applyEmblemToHighest(die.id, makeEmblem("symbol", "spark"))}
+          >
+            Crit burst on the highest face
+          </button>
+        </>
+      )}
+
+      <h3>Die</h3>
       <div className="field">
         <label>Name</label>
         <input
@@ -80,9 +251,7 @@ export function InspectorPanel() {
         <label>Shape</label>
         <select
           value={die.type}
-          onChange={(e) =>
-            state.updateDie(die.id, { type: e.target.value as typeof die.type })
-          }
+          onChange={(e) => state.updateDie(die.id, { type: e.target.value as typeof die.type })}
         >
           {Object.entries(DIE_LABELS).map(([k, v]) => (
             <option key={k} value={k}>
@@ -235,253 +404,7 @@ export function InspectorPanel() {
         </div>
       </div>
 
-      <h2>Face {faceNo === null ? "" : faceNo + 1}</h2>
-      {die.type === "d4" && (
-        <p className="help">
-          Tetrahedron D4s carry three numbers per face, one at each vertex. After a roll, read the
-          number at the point that stands up.
-        </p>
-      )}
-      {die.type === "d4crystal" && (
-        <p className="help">
-          Crystal D4s land on the four long prism faces. The pyramidal caps are unnumbered.
-        </p>
-      )}
-      {die.type === "d4teardrop" && (
-        <p className="help">
-          Teardrop D4s land on four long triangular faces (~80% of the length). The short
-          four-sided cap is unnumbered; numerals point toward the cap.
-        </p>
-      )}
-      {!face && (
-        <p className="help">Click a face on the die to inscribe numbers, crests, or blank it for a logo.</p>
-      )}
-      {face && faceNo !== null && (
-        <>
-          <p className="help">Primary mark</p>
-          <div className="kind-tabs">
-            {KINDS.map((k) => (
-              <button
-                key={k.id}
-                className={`chip ${face.primary.kind === k.id ? "active" : ""}`}
-                onClick={() => state.setFaceKind(die.id, faceNo, "primary", k.id)}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          {(face.primary.kind === "text" ||
-            (face.primary.kind === "number" && die.type !== "d4")) && (
-            <div className="field">
-              <label>Inscription</label>
-              <input
-                type="text"
-                value={face.primary.text}
-                onChange={(e) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { text: e.target.value })
-                }
-              />
-            </div>
-          )}
-          {face.primary.kind === "symbol" && (
-            <div className="field">
-              <label>Symbol</label>
-              <SymbolSelect
-                value={face.primary.symbolId ?? "star"}
-                onChange={(id) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { symbolId: id })
-                }
-              />
-            </div>
-          )}
-          {face.primary.kind === "logo" && (
-            <div className="field">
-              <label>Logo</label>
-              <select
-                value={face.primary.logoId ?? ""}
-                onChange={(e) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { logoId: e.target.value })
-                }
-              >
-                <option value="">Choose upload…</option>
-                {state.project.logos.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <Slider
-            label="Scale"
-            value={face.primary.scale}
-            min={0.3}
-            max={2.2}
-            step={0.02}
-            onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "primary", { scale: n })}
-          />
-          <Slider
-            label="Offset X"
-            value={face.primary.offsetX}
-            min={-1}
-            max={1}
-            step={0.01}
-            onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "primary", { offsetX: n })}
-          />
-          <Slider
-            label="Offset Y"
-            value={face.primary.offsetY}
-            min={-1}
-            max={1}
-            step={0.01}
-            onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "primary", { offsetY: n })}
-          />
-          <Slider
-            label="Rotation"
-            value={face.primary.rotation}
-            min={-180}
-            max={180}
-            step={1}
-            suffix="°"
-            onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "primary", { rotation: n })}
-          />
-          <div className="field">
-            <label>
-              <input
-                type="checkbox"
-                checked={face.primary.underscore}
-                onChange={(e) =>
-                  state.updateFaceGlyph(die.id, faceNo, "primary", { underscore: e.target.checked })
-                }
-              />{" "}
-              Underscore (6 / 9)
-            </label>
-          </div>
-          <button className="btn btn-small" onClick={() => state.copyFaceToAll(die.id, faceNo)}>
-            Copy placement to every face
-          </button>
-
-          <h3>Symbol or logo on this face</h3>
-          <p className="help">
-            Sits beside the number. Scale and move it; it does not replace the inscription.
-            To swap the number for a symbol, use the tabs above.
-          </p>
-          {!face.emblem && (
-            <button
-              className="btn btn-small"
-              onClick={() =>
-                state.updateFaceGlyph(die.id, faceNo, "emblem", makeEmblem("symbol", "star"))
-              }
-            >
-              Add symbol
-            </button>
-          )}
-          {face.emblem && (
-            <>
-              <div className="kind-tabs">
-                {KINDS.filter((k) => k.id === "symbol" || k.id === "logo").map((k) => (
-                  <button
-                    key={k.id}
-                    className={`chip ${face.emblem?.kind === k.id ? "active" : ""}`}
-                    onClick={() => state.setFaceKind(die.id, faceNo, "emblem", k.id)}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-              {face.emblem.kind === "symbol" && (
-                <div className="field">
-                  <label>Symbol</label>
-                  <SymbolSelect
-                    value={face.emblem.symbolId ?? "star"}
-                    onChange={(id) =>
-                      state.updateFaceGlyph(die.id, faceNo, "emblem", { symbolId: id })
-                    }
-                  />
-                </div>
-              )}
-              {face.emblem.kind === "logo" && (
-                <div className="field">
-                  <label>Logo</label>
-                  <select
-                    value={face.emblem.logoId ?? ""}
-                    onChange={(e) =>
-                      state.updateFaceGlyph(die.id, faceNo, "emblem", { logoId: e.target.value })
-                    }
-                  >
-                    <option value="">Choose upload…</option>
-                    {state.project.logos.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <Slider
-                label="Size"
-                value={face.emblem.scale}
-                min={0.15}
-                max={1.6}
-                step={0.02}
-                onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { scale: n })}
-              />
-              <Slider
-                label="Move X"
-                value={face.emblem.offsetX}
-                min={-1}
-                max={1}
-                step={0.01}
-                onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { offsetX: n })}
-              />
-              <Slider
-                label="Move Y"
-                value={face.emblem.offsetY}
-                min={-1}
-                max={1}
-                step={0.01}
-                onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { offsetY: n })}
-              />
-              <Slider
-                label="Rotation"
-                value={face.emblem.rotation}
-                min={-180}
-                max={180}
-                step={1}
-                suffix="°"
-                onChange={(n) => state.updateFaceGlyph(die.id, faceNo, "emblem", { rotation: n })}
-              />
-              <button
-                className="btn btn-small"
-                onClick={() => state.updateFaceGlyph(die.id, faceNo, "emblem", null)}
-              >
-                Remove symbol
-              </button>
-            </>
-          )}
-
-          <h3>Quick rites</h3>
-          <button
-            className="btn btn-small"
-            onClick={() =>
-              state.applyEmblemToHighest(die.id, makeEmblem("symbol", "dragon"))
-            }
-          >
-            Dragon on the highest face
-          </button>
-          <button
-            className="btn btn-small"
-            style={{ marginTop: 6 }}
-            onClick={() =>
-              state.applyEmblemToHighest(die.id, makeEmblem("symbol", "spark"))
-            }
-          >
-            Crit burst on the highest face
-          </button>
-        </>
-      )}
-
-      <h2>Set-wide type</h2>
+      <h3>Set-wide type</h3>
       <Slider
         label="Global glyph scale"
         value={state.project.globalFontScale}

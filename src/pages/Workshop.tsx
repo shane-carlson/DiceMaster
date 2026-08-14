@@ -38,6 +38,15 @@ export function Workshop() {
         >
           Face editor
         </button>
+        <button
+          className="inspector-tab"
+          onClick={() => {
+            setFaceEditorOpen(false);
+            useProjectStore.getState().revealInspector();
+          }}
+        >
+          Inspector
+        </button>
         <FaceEditor open={faceEditorOpen} onClose={() => setFaceEditorOpen(false)} />
       </div>
       {exportOpen && <ExportDialog font={font} onClose={() => setExportOpen(false)} />}

@@ -5,6 +5,8 @@ import { numeralInk } from "../../engine/ink";
 import { symbolById } from "../../engine/symbols";
 import type { FaceKind } from "../../engine/types";
 import { makeEmblem } from "../../engine/defaults";
+import { GlyphPlace } from "./GlyphPlace";
+import { SymbolSelect } from "./SymbolPicker";
 import { useProjectStore } from "../../store/projectStore";
 
 const TOOLS: { id: FaceKind | "copy" | "copyAll" | "addMark"; label: string }[] = [
@@ -104,11 +106,15 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
   const updateFaceGlyph = useProjectStore((s) => s.updateFaceGlyph);
   const copyFaceToAll = useProjectStore((s) => s.copyFaceToAll);
   const focusDieFace = useProjectStore((s) => s.focusDieFace);
+  const revealInspector = useProjectStore((s) => s.revealInspector);
   const fontRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState<{ dieId: string; faceIndex: number } | null>(null);
 
   const faces = useMemo(() => previewFacesForSet(project.dice), [project.dice]);
   const fontSize = Math.round(project.globalFontScale * 13);
+  const selectedDie = project.dice.find((d) => d.id === selectedDieId);
+  const selectedFace =
+    selectedDie && selectedFaceIndex !== null ? selectedDie.faces[selectedFaceIndex] : null;
 
   const onFont = async (file: File) => {
     const buf = await file.arrayBuffer();
@@ -127,6 +133,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
     }
     if (id === "addMark") {
       updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", makeEmblem("symbol", "star"));
+      revealInspector();
       return;
     }
     setFaceKind(selectedDieId, selectedFaceIndex, "primary", id);
@@ -184,9 +191,10 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
         />
       </div>
       <p className="help">
-        Size is set-wide. Use Add symbol to park a crest beside the number. Replace with
-        symbol or logo swaps the number out. D4 tetrahedron faces show three numbers, one at
-        each vertex — read the point that lands up.
+        Size is set-wide. Click a face, then Add symbol to park a crest beside the number —
+        Size and Move sliders appear below. Replace with symbol or logo swaps the number out.
+        D4 tetrahedron faces show three numbers, one at each vertex — read the point that lands
+        up.
       </p>
 
       <div className="face-editor-tools">
@@ -202,6 +210,58 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
         ))}
       </div>
       {copied && <p className="help">Copied face {copied.faceIndex + 1}. Use Copy to all to stamp placement.</p>}
+
+      {selectedFace && selectedDieId && selectedFaceIndex !== null ? (
+        <div className="face-editor-place">
+          <h3>
+            {selectedDie?.name} · face {selectedFaceIndex + 1}
+          </h3>
+          {selectedFace.emblem ? (
+            <>
+              <p className="help">Symbol or logo beside the number</p>
+              {selectedFace.emblem.kind === "symbol" && (
+                <div className="field">
+                  <label>Symbol</label>
+                  <SymbolSelect
+                    value={selectedFace.emblem.symbolId ?? "star"}
+                    onChange={(id) =>
+                      updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", { symbolId: id })
+                    }
+                  />
+                </div>
+              )}
+              <GlyphPlace
+                glyph={selectedFace.emblem}
+                onChange={(patch) =>
+                  updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", patch)
+                }
+              />
+            </>
+          ) : (
+            <p className="help">Add symbol to place a crest beside the number, then size and move it here.</p>
+          )}
+          <p className="help">Number / primary mark</p>
+          <GlyphPlace
+            glyph={selectedFace.primary}
+            sizeMin={0.3}
+            sizeMax={2.2}
+            onChange={(patch) =>
+              updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", patch)
+            }
+          />
+          <button
+            className="btn btn-gold btn-small"
+            onClick={() => {
+              revealInspector();
+              onClose();
+            }}
+          >
+            Open Inspector
+          </button>
+        </div>
+      ) : (
+        <p className="help">Click a face in the grid to size and move its marks.</p>
+      )}
 
       <div className="face-grid">
         {faces.map((face) => (

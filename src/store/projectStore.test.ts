@@ -58,4 +58,13 @@ describe("face emblems", () => {
     expect(face.primary.symbolId).toBe("skull");
     expect(face.emblem).toBeNull();
   });
+
+  it("picks a face when none is selected so the inspector can open", () => {
+    const die = loadDie();
+    useProjectStore.setState({ selectedDieId: null, selectedFaceIndex: null });
+    const target = useProjectStore.getState().ensureFaceSelection();
+    expect(target).toEqual({ dieId: die.id, faceIndex: 0 });
+    useProjectStore.getState().revealInspector();
+    expect(useProjectStore.getState().inspectorFocusGeneration).toBeGreaterThan(0);
+  });
 });

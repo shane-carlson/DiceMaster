@@ -2,7 +2,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { arrayBufferToBase64, BUILTIN_FONTS, fontsByGroup } from "../../engine/fonts";
 import { uid } from "../../engine/id";
 import { SET_TEMPLATES } from "../../engine/templates";
-import type { DieType, SizeFormatId } from "../../engine/types";
+import type { DieType, GlyphSettings, SizeFormatId } from "../../engine/types";
 import { symbolsByCategory } from "../../engine/symbols";
 import { useProjectStore } from "../../store/projectStore";
 
@@ -22,7 +22,6 @@ const ADDABLE: { type: DieType; label: string }[] = [
 export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => void }) {
   const project = useProjectStore((s) => s.project);
   const selectedDieId = useProjectStore((s) => s.selectedDieId);
-  const selectedFaceIndex = useProjectStore((s) => s.selectedFaceIndex);
   const loadTemplate = useProjectStore((s) => s.loadTemplate);
   const addDie = useProjectStore((s) => s.addDie);
   const focusDie = useProjectStore((s) => s.focusDie);
@@ -32,6 +31,8 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
   const setCustomFont = useProjectStore((s) => s.setCustomFont);
   const addLogo = useProjectStore((s) => s.addLogo);
   const updateFaceGlyph = useProjectStore((s) => s.updateFaceGlyph);
+  const ensureFaceSelection = useProjectStore((s) => s.ensureFaceSelection);
+  const revealInspector = useProjectStore((s) => s.revealInspector);
   const fontRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const [placeMode, setPlaceMode] = useState<"add" | "replace">("add");
@@ -49,6 +50,13 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       const data = await readDataUrl(file);
       addLogo({ id: uid(), name: file.name, kind: "png", data });
     }
+  };
+
+  const placeOnFace = (which: "primary" | "emblem", patch: Partial<GlyphSettings>) => {
+    const target = ensureFaceSelection();
+    if (!target) return;
+    updateFaceGlyph(target.dieId, target.faceIndex, which, patch);
+    revealInspector();
   };
 
   return (
@@ -91,11 +99,16 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
       </div>
 
       <h2>This set</h2>
-      {onOpenFaceEditor && (
-        <button className="btn btn-gold btn-small" style={{ marginBottom: 10 }} onClick={onOpenFaceEditor}>
-          Face editor
+      <div className="chip-row" style={{ marginBottom: 10 }}>
+        {onOpenFaceEditor && (
+          <button className="btn btn-gold btn-small" onClick={onOpenFaceEditor}>
+            Face editor
+          </button>
+        )}
+        <button className="btn btn-small" onClick={() => revealInspector()}>
+          Inspector
         </button>
-      )}
+      </div>
       <div className="die-list">
         {project.dice.length === 0 && <div className="empty">The vault is empty. Add a die.</div>}
         {project.dice.map((die) => (
@@ -193,19 +206,10 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
             key={logo.id}
             className="btn btn-small"
             onClick={() => {
-              if (!selectedDieId || selectedFaceIndex === null) return;
               if (placeMode === "add") {
-                updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", {
-                  kind: "logo",
-                  logoId: logo.id,
-                  text: "",
-                });
+                placeOnFace("emblem", { kind: "logo", logoId: logo.id, text: "" });
               } else {
-                updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
-                  kind: "logo",
-                  logoId: logo.id,
-                  text: "",
-                });
+                placeOnFace("primary", { kind: "logo", logoId: logo.id, text: "" });
               }
             }}
           >
@@ -226,19 +230,10 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
               className="symbol-btn"
               title={s.name}
               onClick={() => {
-                if (!selectedDieId || selectedFaceIndex === null) return;
                 if (placeMode === "add") {
-                  updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", {
-                    kind: "symbol",
-                    symbolId: s.id,
-                    text: "",
-                  });
+                  placeOnFace("emblem", { kind: "symbol", symbolId: s.id, text: "" });
                 } else {
-                  updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", {
-                    kind: "symbol",
-                    symbolId: s.id,
-                    text: "",
-                  });
+                  placeOnFace("primary", { kind: "symbol", symbolId: s.id, text: "" });
                 }
               }}
             >
@@ -250,8 +245,8 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
         ])}
       </div>
       <p className="help" style={{ marginTop: 8 }}>
-        Add beside number keeps the inscription; use the inspector to resize and move the mark.
-        Replace number swaps the face for that symbol or logo.
+        Add beside number keeps the inscription. Size and Move sliders are in the Inspector
+        (right panel, or the Inspector tab) and in Face editor after you click a face.
       </p>
     </aside>
   );

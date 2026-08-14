@@ -35,6 +35,7 @@ export interface WorkshopState {
   selectedDieId: string | null;
   selectedFaceIndex: number | null;
   focusGeneration: number;
+  inspectorFocusGeneration: number;
   viewResetGeneration: number;
   previewMode: "overview" | "die" | "face";
   hydrate: () => void;
@@ -52,6 +53,8 @@ export interface WorkshopState {
   focusDieFace: (id: string, faceIndex: number) => void;
   resetView: () => void;
   selectFace: (index: number | null) => void;
+  ensureFaceSelection: () => { dieId: string; faceIndex: number } | null;
+  revealInspector: () => void;
   updateDie: (id: string, patch: Partial<DieInstance>) => void;
   setSizeFormat: (id: string, format: SizeFormatId | "custom", sizeMm?: number) => void;
   updateFaceGlyph: (
@@ -83,6 +86,7 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
   selectedDieId: null,
   selectedFaceIndex: null,
   focusGeneration: 0,
+  inspectorFocusGeneration: 0,
   viewResetGeneration: 0,
   previewMode: "overview",
 
@@ -217,6 +221,21 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
       viewResetGeneration: s.viewResetGeneration + 1,
     })),
   selectFace: (index) => set({ selectedFaceIndex: index }),
+  ensureFaceSelection: () => {
+    const s = get();
+    if (s.selectedDieId && s.selectedFaceIndex !== null) {
+      return { dieId: s.selectedDieId, faceIndex: s.selectedFaceIndex };
+    }
+    const dieId = s.selectedDieId ?? s.project.dice[0]?.id;
+    if (!dieId) return null;
+    const die = s.project.dice.find((d) => d.id === dieId);
+    if (!die || die.faces.length === 0) return null;
+    const faceIndex = s.selectedFaceIndex ?? 0;
+    set({ selectedDieId: dieId, selectedFaceIndex: faceIndex });
+    return { dieId, faceIndex };
+  },
+  revealInspector: () =>
+    set((s) => ({ inspectorFocusGeneration: s.inspectorFocusGeneration + 1 })),
 
   updateDie: (id, patch) =>
     set((s) => {
