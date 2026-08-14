@@ -8,10 +8,18 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
-import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
+import { faceOutline3D, geometryFromFaces, type DieFace, type FaceCarveHole } from "../../engine/faces";
 import { numeralInk } from "../../engine/ink";
 
-function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
+function GlyphMesh({
+  glyph,
+  color,
+  inspectFace,
+}: {
+  glyph: PlacedGlyph;
+  color: string;
+  inspectFace: boolean;
+}) {
   const ref = useRef<ThreeMesh>(null);
 
   useLayoutEffect(() => {
@@ -22,12 +30,14 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   }, [glyph]);
 
   return (
-    <mesh ref={ref} geometry={glyph.geometry} renderOrder={2}>
-      <meshBasicMaterial
+    <mesh ref={ref} geometry={glyph.geometry} renderOrder={1}>
+      <meshStandardMaterial
         color={color}
-        polygonOffset
-        polygonOffsetFactor={-4}
-        polygonOffsetUnits={-4}
+        roughness={inspectFace ? 0.38 : 0.45}
+        metalness={0.02}
+        emissive={color}
+        emissiveIntensity={inspectFace ? 0.22 : 0.1}
+        side={DoubleSide}
       />
     </mesh>
   );
@@ -89,7 +99,21 @@ export function DieMesh({
     return geom;
   }, [faces, selectedFace, inspectFace]);
 
-  const shaded = useMemo(() => geometryFromFaces(faces), [faces]);
+  const carveHoles = useMemo((): FaceCarveHole[] => {
+    return glyphs
+      .filter((g) => g.inset)
+      .map((g) => ({
+        faceIndex: g.faceIndex,
+        shapes: g.shapes,
+        ox: g.ox,
+        oy: g.oy,
+        rotation: g.rotation,
+      }));
+  }, [glyphs]);
+  const shaded = useMemo(
+    () => geometryFromFaces(faces, carveHoles),
+    [faces, carveHoles],
+  );
   const displayBody = shaded ?? body;
 
   useLayoutEffect(() => {
@@ -123,6 +147,7 @@ export function DieMesh({
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
           color={numeralInk(color, g.role === "emblem" ? "emblem" : "primary")}
+          inspectFace={inspectFace}
         />
       ))}
       {highlight && (

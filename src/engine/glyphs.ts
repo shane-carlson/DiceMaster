@@ -1,7 +1,9 @@
 import {
+  BufferAttribute,
   BufferGeometry,
   ExtrudeGeometry,
   Shape,
+  ShapeGeometry,
   ShapePath,
   Vector2,
   Vector3,
@@ -220,12 +222,105 @@ function scaleShapes(shapes: Shape[], scale: number): Shape[] {
   });
 }
 
-function centerAndExtrude(shapes: Shape[], depth: number): BufferGeometry | null {
+export type GlyphZAlign = "center" | "inset" | "outset";
+
+export interface GlyphShapeContours {
+  outer: { x: number; y: number }[];
+  holes: { x: number; y: number }[][];
+}
+
+/** Drop triangles that lie entirely on a z-plane (the opening cap of a well). */
+export function stripCapAtZ(geom: BufferGeometry, zTarget: number, epsilon = 0.03): void {
+  const pos = geom.getAttribute("position");
+  if (!pos) return;
+  const kept: number[] = [];
+  const visit = (i0: number, i1: number, i2: number) => {
+    const z0 = pos.getZ(i0);
+    const z1 = pos.getZ(i1);
+    const z2 = pos.getZ(i2);
+    if (
+      Math.abs(z0 - zTarget) < epsilon &&
+      Math.abs(z1 - zTarget) < epsilon &&
+      Math.abs(z2 - zTarget) < epsilon
+    ) {
+      return;
+    }
+    kept.push(
+      pos.getX(i0),
+      pos.getY(i0),
+      z0,
+      pos.getX(i1),
+      pos.getY(i1),
+      z1,
+      pos.getX(i2),
+      pos.getY(i2),
+      z2,
+    );
+  };
+  const idx = geom.index;
+  if (idx) {
+    for (let i = 0; i < idx.count; i += 3) visit(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
+  } else {
+    for (let i = 0; i < pos.count; i += 3) visit(i, i + 1, i + 2);
+  }
+  if (kept.length < 9) return;
+  geom.setIndex(null);
+  geom.setAttribute("position", new BufferAttribute(new Float32Array(kept), 3));
+  geom.computeVertexNormals();
+}
+
+export function contoursFromShapes(
+  shapes: Shape[],
+  dx: number,
+  dy: number,
+  divisions = 16,
+): GlyphShapeContours[] {
+  const shift = (pts: Vector2[]) => pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+  return shapes.map((shape) => ({
+    outer: shift(shape.getPoints(divisions)),
+    holes: shape.holes.map((hole) => shift(hole.getPoints(Math.max(8, divisions - 4)))),
+  }));
+}
+
+function collectPositions(geom: BufferGeometry): number[] {
+  const pos = geom.getAttribute("position");
+  const out: number[] = [];
+  if (!pos) return out;
+  const push = (i: number) => out.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+  const idx = geom.index;
+  if (idx) {
+    for (let i = 0; i < idx.count; i++) push(idx.getX(i));
+  } else {
+    for (let i = 0; i < pos.count; i++) push(i);
+  }
+  return out;
+}
+
+function wellFloor(shapes: Shape[], cx: number, cy: number, depth: number): BufferGeometry {
+  const data: number[] = [];
+  for (const shape of shapes) {
+    const g = new ShapeGeometry(shape);
+    g.translate(-cx, -cy, -depth);
+    data.push(...collectPositions(g));
+    g.dispose();
+  }
+  const geom = new BufferGeometry();
+  geom.setAttribute("position", new BufferAttribute(new Float32Array(data), 3));
+  return geom;
+}
+
+export function extrudeShapes(
+  shapes: Shape[],
+  depth: number,
+  align: GlyphZAlign = "center",
+  openFace = false,
+): BufferGeometry | null {
   if (shapes.length === 0) return null;
+  const d = Math.max(depth, 0.08);
   const geom = new ExtrudeGeometry(shapes, {
-    depth: Math.max(depth, 0.08),
+    depth: d,
     bevelEnabled: false,
-    curveSegments: 6,
+    curveSegments: 8,
     steps: 1,
   });
   geom.computeBoundingBox();
@@ -233,8 +328,20 @@ function centerAndExtrude(shapes: Shape[], depth: number): BufferGeometry | null
   if (!bb) return geom;
   const cx = (bb.min.x + bb.max.x) / 2;
   const cy = (bb.min.y + bb.max.y) / 2;
-  const d = Math.max(depth, 0.08);
-  geom.translate(-cx, -cy, -d / 2);
+  if (align === "inset") geom.translate(-cx, -cy, -d);
+  else if (align === "outset") geom.translate(-cx, -cy, 0);
+  else geom.translate(-cx, -cy, -d / 2);
+  if (openFace) {
+    stripCapAtZ(geom, 0);
+    stripCapAtZ(geom, -d);
+    const floor = wellFloor(shapes, cx, cy, d);
+    const merged = collectPositions(geom).concat(collectPositions(floor));
+    floor.dispose();
+    if (merged.length >= 9) {
+      geom.setIndex(null);
+      geom.setAttribute("position", new BufferAttribute(new Float32Array(merged), 3));
+    }
+  }
   geom.computeVertexNormals();
   return geom;
 }
@@ -243,6 +350,7 @@ export interface GlyphBuild {
   geometry: BufferGeometry;
   width: number;
   height: number;
+  contours: GlyphShapeContours[];
 }
 
 export async function buildGlyphGeometry(
@@ -251,6 +359,8 @@ export async function buildGlyphGeometry(
   logos: LogoAsset[],
   targetSize: number,
   depth: number,
+  align: GlyphZAlign = "center",
+  openFace = false,
 ): Promise<GlyphBuild | null> {
   if (glyph.kind === "blank") return null;
   let shapes: Shape[] = [];
@@ -297,10 +407,14 @@ export async function buildGlyphGeometry(
   const h = bb.maxY - bb.minY || 1;
   const scale = (targetSize / Math.max(w, h)) * glyph.scale;
   const scaled = scaleShapes(shapes, scale);
-
-  const geometry = centerAndExtrude(scaled, depth);
+  const scaledBb = shapesBBox(scaled);
+  if (!scaledBb) return null;
+  const cx = (scaledBb.minX + scaledBb.maxX) / 2;
+  const cy = (scaledBb.minY + scaledBb.maxY) / 2;
+  const contours = contoursFromShapes(scaled, -cx, -cy);
+  const geometry = extrudeShapes(scaled, depth, align, openFace);
   if (!geometry) return null;
-  return { geometry, width: w * scale, height: h * scale };
+  return { geometry, width: w * scale, height: h * scale, contours };
 }
 
 export const PIP_LAYOUTS: Record<number, [number, number][]> = {
@@ -341,6 +455,15 @@ export function pipPositions(value: number, span: number): Vector2[] {
   const layout = PIP_LAYOUTS[value];
   if (!layout) return [];
   return layout.map(([x, y]) => new Vector2(x * span, y * span));
+}
+
+export function circleContour(radius: number, segments = 20): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius });
+  }
+  return pts;
 }
 
 export function faceBasisMatrix(

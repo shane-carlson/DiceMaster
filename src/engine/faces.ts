@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, Path, Shape, ShapeGeometry, Vector3 } from "three";
 import type { DieType } from "./types";
 
 export interface DieFace {
@@ -329,21 +329,175 @@ export function faceCircumradius(face: DieFace): number {
   return r;
 }
 
-/** Display mesh: one constant normal per logical face so quads don't show a diagonal crease. */
-export function geometryFromFaces(faces: DieFace[]): BufferGeometry | null {
+/** Display mesh: one constant normal per logical face so quads don't show a diagonal crease.
+ *  Optional carve holes cut letter-shaped openings so inset numerals sit below the surface. */
+export interface FaceHoleShape {
+  outer: { x: number; y: number }[];
+  holes: { x: number; y: number }[][];
+}
+
+export interface FaceCarveHole {
+  faceIndex: number;
+  shapes: FaceHoleShape[];
+  ox: number;
+  oy: number;
+  rotation: number;
+}
+
+export function offsetInFacePlane(
+  localX: number,
+  localY: number,
+  ox: number,
+  oy: number,
+  rotationDeg: number,
+): { x: number; y: number } {
+  const a = (-rotationDeg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return {
+    x: localX * c - localY * s + ox,
+    y: localX * s + localY * c + oy,
+  };
+}
+
+function toPath(pts: { x: number; y: number }[]): Path {
+  const path = new Path();
+  if (pts.length === 0) return path;
+  path.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
+  path.closePath();
+  return path;
+}
+
+function toShape(pts: { x: number; y: number }[]): Shape {
+  const shape = new Shape();
+  if (pts.length === 0) return shape;
+  shape.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+  shape.closePath();
+  return shape;
+}
+
+function mapFacePoint(
+  x: number,
+  y: number,
+  face: DieFace,
+  ring3: Vector3[],
+  ring2: { x: number; y: number }[],
+): Vector3 {
+  for (let i = 0; i < ring2.length; i++) {
+    if (Math.hypot(ring2[i].x - x, ring2[i].y - y) < 1e-4) return ring3[i].clone();
+  }
+  return face.center.clone().addScaledVector(face.tangent, x).addScaledVector(face.bitangent, y);
+}
+
+function emitShape(
+  shape: Shape,
+  face: DieFace,
+  ring3: Vector3[],
+  ring2: { x: number; y: number }[],
+  positions: number[],
+  normals: number[],
+): boolean {
+  const geom = new ShapeGeometry(shape);
+  const pos = geom.getAttribute("position");
+  if (!pos || pos.count < 3) {
+    geom.dispose();
+    return false;
+  }
+  const n = face.normal;
+  const push = (vi: number) => {
+    const w = mapFacePoint(pos.getX(vi), pos.getY(vi), face, ring3, ring2);
+    positions.push(w.x, w.y, w.z);
+    normals.push(n.x, n.y, n.z);
+  };
+  const idx = geom.index;
+  if (idx) {
+    if (idx.count < 3) {
+      geom.dispose();
+      return false;
+    }
+    for (let i = 0; i < idx.count; i++) push(idx.getX(i));
+  } else {
+    for (let i = 0; i < pos.count; i++) push(i);
+  }
+  geom.dispose();
+  return true;
+}
+
+function fanFace(
+  face: DieFace,
+  positions: number[],
+  normals: number[],
+): void {
+  const ring = faceOutline3D(face);
+  if (ring.length < 3) return;
+  const n = face.normal;
+  const origin = ring[0];
+  for (let i = 1; i < ring.length - 1; i++) {
+    const b = ring[i];
+    const c = ring[i + 1];
+    positions.push(origin.x, origin.y, origin.z, b.x, b.y, b.z, c.x, c.y, c.z);
+    for (let k = 0; k < 3; k++) normals.push(n.x, n.y, n.z);
+  }
+}
+
+function holedFace(
+  face: DieFace,
+  holes: FaceCarveHole[],
+  positions: number[],
+  normals: number[],
+): boolean {
+  const ring3 = faceOutline3D(face);
+  if (ring3.length < 3) return false;
+  const ring2 = ring3.map((v) => {
+    const d = v.clone().sub(face.center);
+    return { x: d.dot(face.tangent), y: d.dot(face.bitangent) };
+  });
+  const outline = toShape(ring2);
+  const islands: Shape[] = [];
+  for (const hole of holes) {
+    for (const shape of hole.shapes) {
+      const outer = shape.outer.map((p) =>
+        offsetInFacePlane(p.x, p.y, hole.ox, hole.oy, hole.rotation),
+      );
+      if (outer.length >= 3) outline.holes.push(toPath(outer));
+      for (const counter of shape.holes) {
+        const pts = counter.map((p) =>
+          offsetInFacePlane(p.x, p.y, hole.ox, hole.oy, hole.rotation),
+        );
+        if (pts.length >= 3) islands.push(toShape(pts));
+      }
+    }
+  }
+  const start = positions.length;
+  try {
+    if (!emitShape(outline, face, ring3, ring2, positions, normals)) return false;
+    for (const island of islands) emitShape(island, face, ring3, ring2, positions, normals);
+  } catch {
+    positions.length = start;
+    normals.length = start;
+    return false;
+  }
+  return positions.length > start;
+}
+
+export function geometryFromFaces(
+  faces: DieFace[],
+  holes: FaceCarveHole[] = [],
+): BufferGeometry | null {
   const positions: number[] = [];
   const normals: number[] = [];
+  const byFace = new Map<number, FaceCarveHole[]>();
+  for (const hole of holes) {
+    const list = byFace.get(hole.faceIndex) ?? [];
+    list.push(hole);
+    byFace.set(hole.faceIndex, list);
+  }
   for (const face of faces) {
-    const ring = faceOutline3D(face);
-    if (ring.length < 3) continue;
-    const n = face.normal;
-    const origin = ring[0];
-    for (let i = 1; i < ring.length - 1; i++) {
-      const b = ring[i];
-      const c = ring[i + 1];
-      positions.push(origin.x, origin.y, origin.z, b.x, b.y, b.z, c.x, c.y, c.z);
-      for (let k = 0; k < 3; k++) normals.push(n.x, n.y, n.z);
-    }
+    const faceHoles = byFace.get(face.index) ?? [];
+    if (faceHoles.length > 0 && holedFace(face, faceHoles, positions, normals)) continue;
+    fanFace(face, positions, normals);
   }
   if (positions.length < 9) return null;
   const geom = new BufferGeometry();
