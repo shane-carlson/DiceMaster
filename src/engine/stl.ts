@@ -3,11 +3,81 @@ import { STLExporter } from "three/addons/exporters/STLExporter.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import JSZip from "jszip";
 import type { Font } from "opentype.js";
-import { bakeEngraving, buildDie, yieldToMain } from "./buildDie";
+import { bakeEngraving, buildDie, yieldToMain, type DieBuild } from "./buildDie";
 import { packFootprints, STANDARD_RESIN_PLATE } from "./packPlate";
 import type { DieInstance, LogoAsset, Project } from "./types";
 
 const exporter = new STLExporter();
+
+export type ExportPhase = "preparing" | "building" | "carving" | "packing" | "complete";
+
+export type ExportProgress = {
+  done: number;
+  total: number;
+  label: string;
+  phase: ExportPhase;
+  detail: string;
+  percent: number;
+};
+
+export type ExportProgressHandler = (progress: ExportProgress) => void | Promise<void>;
+
+/** Dice occupy 0–94%; packing 97%; complete is 100. */
+export function exportPercent(
+  dieIndex: number,
+  dieCount: number,
+  dieFraction: number,
+  stage: "work" | "packing" | "complete" = "work",
+): number {
+  if (stage === "complete" || dieCount <= 0) return 100;
+  if (stage === "packing") return 97;
+  const frac = Math.min(1, Math.max(0, dieFraction));
+  return Math.min(94, Math.round(((dieIndex + frac) / dieCount) * 94));
+}
+
+function carveFraction(glyphsDone: number, glyphsTotal: number): number {
+  if (glyphsTotal <= 0) return 1;
+  return 0.1 + 0.9 * (glyphsDone / glyphsTotal);
+}
+
+function dieProgress(
+  die: DieInstance,
+  dieIndex: number,
+  dieCount: number,
+  phase: "building" | "carving",
+  glyphsDone: number,
+  glyphsTotal: number,
+): ExportProgress {
+  const dieFraction = phase === "building" ? 0.08 : carveFraction(glyphsDone, glyphsTotal);
+  return {
+    done: dieIndex,
+    total: dieCount,
+    label: die.name,
+    phase,
+    detail:
+      phase === "building"
+        ? `Building ${die.name}`
+        : glyphsTotal > 0
+          ? `Carving ${die.name} · ${glyphsDone} of ${glyphsTotal}`
+          : `Carving ${die.name}`,
+    percent: exportPercent(dieIndex, dieCount, dieFraction),
+  };
+}
+
+async function buildAndBake(
+  die: DieInstance,
+  font: Font,
+  logos: LogoAsset[],
+  globalScale: number,
+  onCarve?: (phase: "building" | "carving", glyphsDone: number, glyphsTotal: number) => void | Promise<void>,
+): Promise<{ build: DieBuild; baked: BufferGeometry }> {
+  await onCarve?.("building", 0, 1);
+  const build = await buildDie(die, font, logos, globalScale, "print");
+  const baked = await bakeEngraving(build, die.engraveMode, async (done, total) => {
+    await onCarve?.("carving", done, total);
+  });
+  return { build, baked };
+}
 
 export function geometryToStl(geometry: BufferGeometry): ArrayBuffer {
   const mesh = new Mesh(geometry, new MeshNormalMaterial());
@@ -49,13 +119,29 @@ export async function exportDieStl(
   font: Font,
   logos: LogoAsset[],
   globalScale: number,
+  onProgress?: ExportProgressHandler,
 ): Promise<{ name: string; buffer: ArrayBuffer }> {
-  const build = await buildDie(die, font, logos, globalScale, "print");
-  const baked = await bakeEngraving(build, die.engraveMode);
+  const { build, baked } = await buildAndBake(
+    die,
+    font,
+    logos,
+    globalScale,
+    async (phase, gDone, gTotal) => {
+      await onProgress?.(dieProgress(die, 0, 1, phase, gDone, gTotal));
+    },
+  );
   const buffer = geometryToStl(baked);
   baked.dispose();
   build.body.dispose();
   for (const g of build.glyphs) g.geometry.dispose();
+  await onProgress?.({
+    done: 1,
+    total: 1,
+    label: die.name,
+    phase: "complete",
+    detail: "Ready to download",
+    percent: 100,
+  });
   return { name: `${slug(die.name)}-${die.type}-${Math.round(die.sizeMm)}mm.stl`, buffer };
 }
 
@@ -63,25 +149,47 @@ export async function exportProjectZip(
   project: Project,
   dice: DieInstance[],
   font: Font,
-  onProgress?: (done: number, total: number, label: string) => void,
+  onProgress?: ExportProgressHandler,
 ): Promise<Blob> {
   const zip = new JSZip();
   const folder = zip.folder(slug(project.name) || "dicemaster")!;
   const total = dice.length;
   for (let i = 0; i < dice.length; i++) {
     const die = dice[i];
-    onProgress?.(i, total, die.name);
     await yieldToMain();
-    const { name, buffer } = await exportDieStl(
+    const { build, baked } = await buildAndBake(
       die,
       font,
       project.logos,
       project.globalFontScale,
+      async (phase, gDone, gTotal) => {
+        await onProgress?.(dieProgress(die, i, total, phase, gDone, gTotal));
+      },
     );
-    folder.file(name, buffer);
+    const buffer = geometryToStl(baked);
+    folder.file(`${slug(die.name)}-${die.type}-${Math.round(die.sizeMm)}mm.stl`, buffer);
+    baked.dispose();
+    build.body.dispose();
+    for (const g of build.glyphs) g.geometry.dispose();
   }
-  onProgress?.(total, total, "Packing");
-  return zip.generateAsync({ type: "blob" });
+  await onProgress?.({
+    done: total,
+    total,
+    label: "Archive",
+    phase: "packing",
+    detail: "Zipping STL files",
+    percent: exportPercent(0, total, 0, "packing"),
+  });
+  const blob = await zip.generateAsync({ type: "blob" });
+  await onProgress?.({
+    done: total,
+    total,
+    label: "Archive",
+    phase: "complete",
+    detail: "Ready to download",
+    percent: 100,
+  });
+  return blob;
 }
 
 export function safeFilename(name: string, ext: string): string {
@@ -99,7 +207,7 @@ export async function exportPackedPlateStl(
   project: Project,
   dice: DieInstance[],
   font: Font,
-  onProgress?: (done: number, total: number, label: string) => void,
+  onProgress?: ExportProgressHandler,
 ): Promise<{
   name: string;
   buffer: ArrayBuffer;
@@ -111,10 +219,16 @@ export async function exportPackedPlateStl(
   const total = dice.length;
   for (let i = 0; i < dice.length; i++) {
     const die = dice[i];
-    onProgress?.(i, total, die.name);
     await yieldToMain();
-    const build = await buildDie(die, font, project.logos, project.globalFontScale, "print");
-    const baked = await bakeEngraving(build, die.engraveMode);
+    const { build, baked } = await buildAndBake(
+      die,
+      font,
+      project.logos,
+      project.globalFontScale,
+      async (phase, gDone, gTotal) => {
+        await onProgress?.(dieProgress(die, i, total, phase, gDone, gTotal));
+      },
+    );
     sitOnBuildPlate(baked);
     baked.computeBoundingBox();
     const bb = baked.boundingBox!;
@@ -127,6 +241,16 @@ export async function exportPackedPlateStl(
     build.body.dispose();
     for (const g of build.glyphs) g.geometry.dispose();
   }
+
+  await onProgress?.({
+    done: total,
+    total,
+    label: "Plate",
+    phase: "packing",
+    detail: "Packing the build plate",
+    percent: exportPercent(0, total, 0, "packing"),
+  });
+  await yieldToMain();
 
   const packed = packFootprints(
     pieces.map((p) => ({ id: p.id, width: p.width, depth: p.depth })),
@@ -157,7 +281,14 @@ export async function exportPackedPlateStl(
     for (const g of placed) g.dispose();
   }
   merged.dispose();
-  onProgress?.(total, total, "Plate");
+  await onProgress?.({
+    done: total,
+    total,
+    label: "Plate",
+    phase: "complete",
+    detail: "Ready to download",
+    percent: 100,
+  });
   return {
     name: `${slug(project.name) || "dicemaster"}-plate.stl`,
     buffer,

@@ -305,8 +305,13 @@ export async function buildDie(
 export async function bakeEngraving(
   build: DieBuild,
   mode: DieInstance["engraveMode"],
+  onProgress?: (done: number, total: number) => void | Promise<void>,
 ): Promise<BufferGeometry> {
-  if (build.glyphs.length === 0) return build.body.clone();
+  const total = build.glyphs.length;
+  if (total === 0) {
+    await onProgress?.(1, 1);
+    return build.body.clone();
+  }
   const evaluator = csgEvaluator();
   const op = mode === "emboss" ? ADDITION : SUBTRACTION;
 
@@ -330,7 +335,8 @@ export async function bakeEngraving(
   try {
     let current = body;
     const batch = 3;
-    for (let i = 0; i < build.glyphs.length; i += batch) {
+    await onProgress?.(0, total);
+    for (let i = 0; i < total; i += batch) {
       const parts = build.glyphs.slice(i, i + batch).map(worldCutter);
       const merged = parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
       if (merged?.getAttribute("position")) {
@@ -342,10 +348,12 @@ export async function bakeEngraving(
         if (part !== merged) part.dispose();
       }
       if (parts.length > 1) merged?.dispose();
+      await onProgress?.(Math.min(i + batch, total), total);
       await yieldToMain();
     }
     return finish(current.geometry.clone());
   } catch {
+    await onProgress?.(total, total);
     return build.body.clone();
   }
 }

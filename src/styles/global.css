@@ -644,18 +644,74 @@ img {
   gap: 10px;
 }
 
-.progress {
-  height: 8px;
+.export-row.current {
+  color: var(--gold-2);
+}
+
+.export-row.done {
+  opacity: 0.78;
+}
+
+.export-row.queued {
+  opacity: 0.65;
+}
+
+.export-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.export-status.done {
+  color: var(--gold);
+}
+
+.export-status.current {
+  color: var(--gold-2);
+}
+
+.export-progress {
+  margin: 4px 0 12px;
+  padding: 12px 14px;
   background: #100c09;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.progress-meta strong {
+  color: var(--parchment);
+  font-weight: 600;
+}
+
+.progress-meta span {
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-2);
+  font-weight: 700;
+}
+
+.progress {
+  height: 10px;
+  background: #1a120c;
   border-radius: 99px;
   overflow: hidden;
-  margin: 12px 0;
+  margin: 0 0 8px;
 }
 
 .progress > span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--gold-dim), var(--gold-2));
+  transition: width 160ms ease-out;
 }
 
 .help {
