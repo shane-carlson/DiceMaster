@@ -208,4 +208,35 @@ describe("face centers", () => {
       expect(nrm.getZ(t + 2)).toBeCloseTo(nz, 6);
     }
   });
+
+  it("keeps D10 and D% kite faces joined at the poles", () => {
+    for (const type of ["d10", "d00"] as const) {
+      const hull = createDieGeometry(type, 16);
+      hull.computeBoundingBox();
+      const bb = hull.boundingBox!;
+      const faces = extractFaces(hull, type);
+      expect(faces).toHaveLength(10);
+      for (const face of faces) {
+        expect(face.vertices.length).toBe(4);
+      }
+      const display = geometryFromFaces(faces);
+      expect(display).toBeTruthy();
+      const pos = display!.getAttribute("position");
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let i = 0; i < pos.count; i++) {
+        minY = Math.min(minY, pos.getY(i));
+        maxY = Math.max(maxY, pos.getY(i));
+      }
+      expect(maxY).toBeCloseTo(bb.max.y, 4);
+      expect(minY).toBeCloseTo(bb.min.y, 4);
+      for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i);
+        if (y > maxY - 1e-3 || y < minY + 1e-3) {
+          expect(pos.getX(i)).toBeCloseTo(0, 4);
+          expect(pos.getZ(i)).toBeCloseTo(0, 4);
+        }
+      }
+    }
+  });
 });

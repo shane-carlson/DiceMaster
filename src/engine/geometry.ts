@@ -127,11 +127,13 @@ function octahedronVertices(): Vector3[] {
 
 function trapezohedronVertices(sides = 5): Vector3[] {
   const pts: Vector3[] = [];
-  // Polar height 2 and equatorial cylinder diameter 2, so the die is as
-  // wide at the equator as it is tall. Ring offset keeps kite faces.
+  // Polar height 2 and equatorial cylinder diameter 2. ringY is chosen so
+  // each kite (pole + two upper-ring verts + the lower-ring vert between
+  // them) is planar — otherwise the convex hull folds and preview faces
+  // can split apart at the apexes.
   const peak = 1;
   const radius = 1;
-  const ringY = 0.12;
+  const ringY = planarTrapezohedronRingY(sides, peak, radius);
   pts.push(new Vector3(0, peak, 0));
   pts.push(new Vector3(0, -peak, 0));
   for (let i = 0; i < sides; i++) {
@@ -143,6 +145,30 @@ function trapezohedronVertices(sides = 5): Vector3[] {
     pts.push(new Vector3(radius * Math.cos(a), -ringY, radius * Math.sin(a)));
   }
   return pts;
+}
+
+/** Ring height that makes N, U_i, L_i, U_{i+1} coplanar. */
+function planarTrapezohedronRingY(sides: number, peak: number, radius: number): number {
+  const step = (2 * Math.PI) / sides;
+  const N = new Vector3(0, peak, 0);
+  const U0 = (y: number) => new Vector3(radius, y, 0);
+  const U1 = (y: number) =>
+    new Vector3(radius * Math.cos(step), y, radius * Math.sin(step));
+  const L0 = (y: number) =>
+    new Vector3(radius * Math.cos(step / 2), -y, radius * Math.sin(step / 2));
+  const volume = (y: number) =>
+    U0(y)
+      .sub(N)
+      .dot(new Vector3().crossVectors(L0(y).clone().sub(N), U1(y).clone().sub(N)));
+  let lo = 0;
+  let hi = peak * 0.5;
+  const v0 = volume(lo);
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (volume(mid) * v0 > 0) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 function crystalTetrahedronVertices(): Vector3[] {

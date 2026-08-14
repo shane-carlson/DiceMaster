@@ -306,11 +306,18 @@ export function faceOutline2D(face: DieFace): { x: number; y: number }[] {
   return [...pts].sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
 }
 
-/** World-space convex outline, wound to match the outward face normal. */
+/** World-space convex outline using the original vertices (not flattened
+ *  onto the tangent plane — that opened holes at D10 / D% poles). */
 export function faceOutline3D(face: DieFace): Vector3[] {
-  return faceOutline2D(face).map((p) =>
-    face.center.clone().addScaledVector(face.tangent, p.x).addScaledVector(face.bitangent, p.y),
-  );
+  if (face.vertices.length <= 2) return face.vertices.map((v) => v.clone());
+  const ordered = [...face.vertices].sort((a, b) => {
+    const da = a.clone().sub(face.center);
+    const db = b.clone().sub(face.center);
+    const aa = Math.atan2(da.dot(face.bitangent), da.dot(face.tangent));
+    const ab = Math.atan2(db.dot(face.bitangent), db.dot(face.tangent));
+    return aa - ab;
+  });
+  return ordered.map((v) => v.clone());
 }
 
 export function faceCircumradius(face: DieFace): number {
