@@ -71,7 +71,6 @@ export const CRYSTAL_KIT_CHART: CrystalKitPiece[] = [
   { type: "d00", sizeMm: 29, name: "D% Percentile" },
   { type: "d12", sizeMm: 19, name: "D12 Dodecahedron" },
   { type: "d20", sizeMm: 26, name: "D20 Icosahedron" },
-  { type: "d20", sizeMm: 45, name: "D20 45mm" },
 ];
 
 export const DEFAULT_DEPTH: Record<SizeFormatId, number> = {

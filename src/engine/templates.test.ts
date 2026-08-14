@@ -46,7 +46,6 @@ describe("templates", () => {
       ["d00", 29, "D% Percentile"],
       ["d12", 19, "D12 Dodecahedron"],
       ["d20", 26, "D20 Icosahedron"],
-      ["d20", 45, "D20 45mm"],
     ]);
     for (const die of dice) {
       expect(die.sizeFormat).toBe("custom");
