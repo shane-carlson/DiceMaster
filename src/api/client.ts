@@ -12,6 +12,7 @@ import type {
   WorkspacePayload,
 } from "../../shared/account";
 import type { Project } from "../engine/types";
+import { withBase } from "../appBase";
 
 export class ApiError extends Error {
   status: number;
@@ -26,7 +27,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(path, { ...init, headers, credentials: "include" });
+  const res = await fetch(withBase(path), { ...init, headers, credentials: "include" });
   const text = await res.text();
   let data: { error?: string } & Record<string, unknown>;
   try {

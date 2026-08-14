@@ -73,12 +73,16 @@ function optionalProject(value: unknown): Project | undefined {
   return value;
 }
 
+function publicBasePath(): string {
+  return (process.env.PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
+}
+
 function cookieOpts(c: { req: { url: string } }) {
   const url = new URL(c.req.url);
   const secure = process.env.COOKIE_SECURE === "1" || url.protocol === "https:";
   return {
     httpOnly: true,
-    path: "/",
+    path: publicBasePath() || "/",
     sameSite: "Lax" as const,
     maxAge: SESSION_DAYS * 24 * 60 * 60,
     secure,
@@ -601,7 +605,15 @@ export function createApp(vault: FileVault) {
   app.route("/api/admin", admin);
   app.route("/api", authed);
 
-  return app;
+  const base = publicBasePath();
+  if (!base) return app;
+  const root = new Hono<AppEnv>();
+  root.route(base, app);
+  root.onError((err, c) => {
+    const http = asStatusError(err);
+    return c.json({ error: http.message }, http.status);
+  });
+  return root;
 }
 
 export type AuthResponse = {

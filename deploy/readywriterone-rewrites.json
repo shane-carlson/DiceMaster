@@ -1,0 +1,14 @@
+[
+  {
+    "source": "/sidequests/dicemaster",
+    "destination": "/sidequests/dicemaster/index.html"
+  },
+  {
+    "source": "/sidequests/dicemaster/",
+    "destination": "/sidequests/dicemaster/index.html"
+  },
+  {
+    "source": "/sidequests/dicemaster/:path*",
+    "destination": "/sidequests/dicemaster/index.html"
+  }
+]

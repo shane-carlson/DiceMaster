@@ -1,4 +1,5 @@
 import type { Font } from "opentype.js";
+import { withBase } from "../appBase";
 import { getLibraryOverlay } from "./libraryOverlay";
 
 export type FontGroupId = "print" | "fantasy" | "scifi" | "gamer";
@@ -324,7 +325,7 @@ export function loadBuiltinFont(id: string): Promise<Font> {
   const key = `builtin:${option.id}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const promise = fetch(option.file)
+  const promise = fetch(withBase(option.file))
     .then((r) => {
       if (!r.ok) throw new Error(`Failed to load font ${option.name}`);
       return r.arrayBuffer();

@@ -10,6 +10,7 @@ import { useAuthStore } from "./store/authStore";
 import { useCatalogStore } from "./store/catalogStore";
 import { setTrackedPath, startWorkspaceSync } from "./sync/workspaceSync";
 import { SiteBanner } from "./components/layout/SiteBanner";
+import { APP_BASE } from "./appBase";
 
 function SessionTracker() {
   const location = useLocation();
@@ -31,7 +32,7 @@ function Bootstrap() {
 export default function App() {
   return (
     <div className="app-root">
-      <BrowserRouter>
+      <BrowserRouter basename={APP_BASE || undefined}>
         <Bootstrap />
         <SessionTracker />
         <SiteBanner />

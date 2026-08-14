@@ -1,4 +1,5 @@
 import type { WorkspacePayload } from "../../shared/account";
+import { withBase } from "../appBase";
 import { api } from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import { useProjectStore } from "../store/projectStore";
@@ -66,7 +67,7 @@ export function startWorkspaceSync() {
   if (typeof window !== "undefined") {
     window.addEventListener("beforeunload", () => {
       if (useAuthStore.getState().status !== "signed-in") return;
-      void fetch("/api/workspace", {
+      void fetch(withBase("/api/workspace"), {
         method: "PUT",
         credentials: "include",
         keepalive: true,

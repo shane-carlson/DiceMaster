@@ -9,6 +9,7 @@
     "dev:api": "tsx watch --exclude ./data/** --exclude ./dist/** server/index.ts",
     "start": "tsx server/index.ts",
     "build": "tsc -b && vite build",
+    "build:sidequest": "BASE_PATH=/sidequests/dicemaster/ tsc -b && BASE_PATH=/sidequests/dicemaster/ vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

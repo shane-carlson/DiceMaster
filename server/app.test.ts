@@ -305,3 +305,22 @@ describe("admin console API", () => {
     expect(catalog.announcements).toHaveLength(1);
   });
 });
+
+describe("subdirectory mount", () => {
+  it("serves the API under PUBLIC_BASE_PATH", async () => {
+    const previous = process.env.PUBLIC_BASE_PATH;
+    process.env.PUBLIC_BASE_PATH = "/sidequests/dicemaster";
+    const dir = mkdtempSync(join(tmpdir(), "dm-vault-"));
+    try {
+      const app = createApp(new FileVault(dir));
+      const health = await app.request("/sidequests/dicemaster/api/health");
+      expect(health.status).toBe(200);
+      const rootHealth = await app.request("/api/health");
+      expect(rootHealth.status).toBe(404);
+    } finally {
+      if (previous === undefined) delete process.env.PUBLIC_BASE_PATH;
+      else process.env.PUBLIC_BASE_PATH = previous;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
