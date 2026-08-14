@@ -8,6 +8,7 @@ import { uid } from "../engine/id";
 import { useAuthStore } from "../store/authStore";
 import { useProjectStore } from "../store/projectStore";
 import { openSavedSet, saveCurrentSet, saveFontAsset, saveLogoAsset } from "../sync/workspaceSync";
+import { InfoTip } from "../components/ui/InfoTip";
 
 export function Account() {
   const navigate = useNavigate();
@@ -173,15 +174,24 @@ export function Account() {
           </p>
           <form className="auth-form" onSubmit={(e) => void onProfile(e)}>
             <label className="field">
-              <span>Display name</span>
+              <span>
+                Display name
+                <InfoTip text="Shown in the workshop header and on your vault." />
+              </span>
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={40} />
             </label>
             <label className="field">
-              <span>Email</span>
+              <span>
+                Email
+                <InfoTip text="The address you use to sign in. Keep it current so you can recover the account." />
+              </span>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
             <label className="field">
-              <span>Current password</span>
+              <span>
+                Current password
+                <InfoTip text="Required only when you set a new password below." />
+              </span>
               <input
                 type="password"
                 value={currentPassword}
@@ -190,7 +200,10 @@ export function Account() {
               />
             </label>
             <label className="field">
-              <span>New password</span>
+              <span>
+                New password
+                <InfoTip text="Leave blank to keep your current password. Must be at least 8 characters." />
+              </span>
               <input
                 type="password"
                 value={password}
@@ -225,7 +238,12 @@ export function Account() {
                       void onRename(set.id);
                     }}
                   >
-                    <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} />
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      aria-label="Set name"
+                    />
+                    <InfoTip text="Renames this snapshot in your vault. It does not change the live workshop set until you open it." />
                     <button className="btn btn-small" type="submit">
                       Rename
                     </button>

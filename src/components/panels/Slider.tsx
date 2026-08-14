@@ -1,7 +1,9 @@
+import { InfoTip } from "../ui/InfoTip";
 import { formatSignedPercent, percentToScale, scaleToPercent } from "../../engine/scalePercent";
 
 export function Slider({
   label,
+  hint,
   value,
   min,
   max,
@@ -11,6 +13,7 @@ export function Slider({
   display,
 }: {
   label: string;
+  hint: string;
   value: number;
   min: number;
   max: number;
@@ -22,7 +25,10 @@ export function Slider({
   return (
     <div className="field">
       <div className="field-row">
-        <label>{label}</label>
+        <label>
+          {label}
+          <InfoTip text={hint} />
+        </label>
         <span>
           {display ? display(value) : `${Number.isInteger(step) ? value : value.toFixed(2)}${suffix}`}
         </span>
@@ -33,6 +39,8 @@ export function Slider({
         max={max}
         step={step}
         value={value}
+        aria-label={label}
+        aria-valuetext={display ? display(value) : `${value}${suffix}`}
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </div>
@@ -42,6 +50,7 @@ export function Slider({
 /** Size/scale slider: 0% is the default, negative shrinks, positive grows. */
 export function PercentSlider({
   label,
+  hint,
   value,
   defaultValue,
   min,
@@ -49,6 +58,7 @@ export function PercentSlider({
   onChange,
 }: {
   label: string;
+  hint: string;
   value: number;
   defaultValue: number;
   min: number;
@@ -61,6 +71,7 @@ export function PercentSlider({
   return (
     <Slider
       label={label}
+      hint={hint}
       value={pct}
       min={minPct}
       max={maxPct}

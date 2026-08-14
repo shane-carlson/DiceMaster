@@ -342,6 +342,13 @@ img {
   gap: 10px;
 }
 
+.project-name-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .project-name {
   background: transparent;
   border: 1px dashed transparent;
@@ -555,6 +562,107 @@ img {
   justify-content: space-between;
   color: var(--parchment);
   font-size: 0.85rem;
+}
+
+.field-row label,
+.field-label,
+.auth-form .field span,
+.field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-label label {
+  margin: 0;
+}
+
+.info-tip {
+  display: inline-flex;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.info-tip-btn {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--gold-dim);
+  background: var(--gold-tint);
+  color: var(--gold-2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.info-tip-btn:hover,
+.info-tip-btn:focus-visible {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--accent-ink);
+  outline: none;
+}
+
+.info-tip-bubble {
+  position: fixed;
+  z-index: 80;
+  transform: translate(-50%, calc(-100% - 8px));
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--parchment);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+.info-tip-bubble.below {
+  transform: translate(-50%, 8px);
+}
+
+.info-tip-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  background: var(--parchment);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.info-tip-bubble.below::after {
+  top: -5px;
+  bottom: auto;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .symbol-grid {
@@ -1035,7 +1143,9 @@ img {
 }
 
 .auth-form .field span {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 6px;
   font-size: 0.78rem;
   color: var(--muted);

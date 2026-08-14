@@ -4,6 +4,7 @@ import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD } from "../../shared/accoun
 import { api, ApiError } from "../api/client";
 import { Brand } from "../components/layout/Brand";
 import { useAuthStore } from "../store/authStore";
+import { InfoTip } from "../components/ui/InfoTip";
 
 export function AdminLogin() {
   const navigate = useNavigate();
@@ -43,7 +44,10 @@ export function AdminLogin() {
         </p>
         <form className="auth-form" onSubmit={(e) => void submit(e)}>
           <label className="field">
-            <span>Email</span>
+            <span>
+              Email
+              <InfoTip text="Administrator account email. First boot seeds admin@dicemaster.local unless you override it." />
+            </span>
             <input
               type="email"
               value={email}
@@ -53,7 +57,10 @@ export function AdminLogin() {
             />
           </label>
           <label className="field">
-            <span>Password</span>
+            <span>
+              Password
+              <InfoTip text="Administrator password. Change the seeded password as soon as you are in." />
+            </span>
             <input
               type="password"
               value={password}

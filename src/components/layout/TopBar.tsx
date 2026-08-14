@@ -6,6 +6,7 @@ import { saveCurrentSet } from "../../sync/workspaceSync";
 import { Brand } from "./Brand";
 import { HostExitLink } from "./HostExitLink";
 import { UserLinks } from "./UserLinks";
+import { InfoTip } from "../ui/InfoTip";
 
 export function TopBar({ onExport }: { onExport: () => void }) {
   const name = useProjectStore((s) => s.project.name);
@@ -37,12 +38,16 @@ export function TopBar({ onExport }: { onExport: () => void }) {
       <div className="topbar-left">
         <HostExitLink />
         <Brand />
-        <input
-          className="project-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-label="Set name"
-        />
+        <label className="project-name-field">
+          <span className="sr-only">Set name</span>
+          <input
+            className="project-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            aria-label="Set name"
+          />
+          <InfoTip text="Name of this set. Used for vault saves and exported file names." />
+        </label>
       </div>
       <div className="topbar-right">
         {note && <span className="save-pill">{note}</span>}
