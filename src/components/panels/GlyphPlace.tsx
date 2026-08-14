@@ -8,12 +8,14 @@ export function GlyphPlace({
   sizeMin = 0.15,
   sizeMax = 1.6,
   defaultScale = DEFAULT_GLYPH_SCALE,
+  defaultOffsetY = 0,
 }: {
   glyph: GlyphSettings;
   onChange: (patch: Partial<GlyphSettings>) => void;
   sizeMin?: number;
   sizeMax?: number;
   defaultScale?: number;
+  defaultOffsetY?: number;
 }) {
   return (
     <>
@@ -33,6 +35,7 @@ export function GlyphPlace({
         min={-1}
         max={1}
         step={0.01}
+        defaultValue={0}
         onChange={(n) => onChange({ offsetX: n })}
       />
       <Slider
@@ -42,6 +45,7 @@ export function GlyphPlace({
         min={-1}
         max={1}
         step={0.01}
+        defaultValue={defaultOffsetY}
         onChange={(n) => onChange({ offsetY: n })}
       />
       <Slider
@@ -52,6 +56,7 @@ export function GlyphPlace({
         max={180}
         step={1}
         suffix="°"
+        defaultValue={0}
         onChange={(n) => onChange({ rotation: n })}
       />
     </>

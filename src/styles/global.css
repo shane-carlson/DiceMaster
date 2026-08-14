@@ -546,6 +546,40 @@ img {
   accent-color: var(--gold);
 }
 
+.slider-range {
+  --slider-thumb: 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+}
+
+.slider-default-tick {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--slider-thumb) / 2 + var(--tick) * (100% - var(--slider-thumb)));
+  width: 2px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  background: var(--gold-2);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.slider-range input[type="range"] {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+
+.reset-defaults-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .field input[type="text"],
 .field input[type="number"],
 .field input[type="email"],

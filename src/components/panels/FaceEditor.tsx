@@ -4,7 +4,12 @@ import { previewFacesForSet, type FacePreview } from "../../engine/facePreview";
 import { numeralInk } from "../../engine/ink";
 import { symbolById } from "../../engine/symbols";
 import type { FaceKind } from "../../engine/types";
-import { DEFAULT_EMBLEM_SCALE, DEFAULT_GLOBAL_FONT_SCALE, makeEmblem } from "../../engine/defaults";
+import {
+  DEFAULT_EMBLEM_OFFSET_Y,
+  DEFAULT_EMBLEM_SCALE,
+  DEFAULT_GLOBAL_FONT_SCALE,
+  makeEmblem,
+} from "../../engine/defaults";
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
@@ -239,6 +244,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
               <GlyphPlace
                 glyph={selectedFace.emblem}
                 defaultScale={DEFAULT_EMBLEM_SCALE}
+                defaultOffsetY={DEFAULT_EMBLEM_OFFSET_Y}
                 onChange={(patch) =>
                   updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", patch)
                 }

@@ -2,12 +2,15 @@ import { useEffect } from "react";
 import { DIE_COLORS, DIE_LABELS, type FaceKind, type SizeFormatId } from "../../engine/types";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
 import {
+  DEFAULT_CORNER_ROUNDING,
+  DEFAULT_EMBLEM_OFFSET_Y,
   DEFAULT_EMBLEM_SCALE,
   DEFAULT_FONT_SCALE,
   DEFAULT_GLOBAL_FONT_SCALE,
   makeEmblem,
 } from "../../engine/defaults";
-import { defaultBumperSize } from "../../engine/sizes";
+import { defaultBumperSize, sizeFor } from "../../engine/sizes";
+import { defaultCarveDepth } from "../../engine/carve";
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider, Slider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
@@ -55,6 +58,12 @@ export function InspectorPanel() {
         {die.name} · {die.type.toUpperCase()}. Click a face on the die or in Face editor, then
         resize and move marks here.
       </p>
+      <div className="reset-defaults-row">
+        <button className="btn btn-small" onClick={() => state.resetDieDefaults(die.id)}>
+          Reset to defaults
+        </button>
+        <InfoTip text="Puts this die's sliders and options back to factory values. Keeps the shape, name, and inscriptions. Also resets set-wide glyph scale." />
+      </div>
 
       <h3 id="inspector-face">Face {faceNo === null ? "" : faceNo + 1}</h3>
       {die.type === "d4" && (
@@ -227,10 +236,11 @@ export function InspectorPanel() {
                 </HintedField>
               )}
               <GlyphPlace
-                glyph={face.emblem}
-                defaultScale={DEFAULT_EMBLEM_SCALE}
-                onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
-              />
+            glyph={face.emblem}
+            defaultScale={DEFAULT_EMBLEM_SCALE}
+            defaultOffsetY={DEFAULT_EMBLEM_OFFSET_Y}
+            onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
+          />
               <button
                 className="btn btn-small"
                 onClick={() => state.updateFaceGlyph(die.id, faceNo, "emblem", null)}
@@ -313,6 +323,7 @@ export function InspectorPanel() {
         max={60}
         step={0.5}
         suffix=" mm"
+        defaultValue={sizeFor(die.type, die.sizeFormat === "custom" ? "standard" : die.sizeFormat)}
         onChange={(n) => state.setSizeFormat(die.id, "custom", n)}
       />
       <Slider
@@ -322,6 +333,7 @@ export function InspectorPanel() {
         min={0}
         max={0.7}
         step={0.01}
+        defaultValue={DEFAULT_CORNER_ROUNDING}
         onChange={(n) => state.updateDie(die.id, { cornerRounding: n })}
       />
       <Slider
@@ -332,6 +344,7 @@ export function InspectorPanel() {
         max={2.4}
         step={0.05}
         suffix=" mm"
+        defaultValue={defaultCarveDepth(die.sizeFormat)}
         onChange={(n) => state.updateDie(die.id, { engravingDepth: n })}
       />
       <PercentSlider

@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import { createDie, ensureCarveDepth, ensureFaceCount, makeEmblem, rescaleDie } from "../engine/defaults";
+import {
+  createDie,
+  DEFAULT_GLOBAL_FONT_SCALE,
+  ensureCarveDepth,
+  ensureFaceCount,
+  makeEmblem,
+  rescaleDie,
+  resetDieSliders,
+} from "../engine/defaults";
 import { uid } from "../engine/id";
 import { loadLocal, saveLocal } from "../engine/projectIO";
 import { diceFromTemplate, templateById } from "../engine/templates";
@@ -73,6 +81,7 @@ export interface WorkshopState {
   removeLogo: (id: string) => void;
   copyFaceToAll: (dieId: string, faceIndex: number) => void;
   applyEmblemToHighest: (dieId: string, emblem: GlyphSettings) => void;
+  resetDieDefaults: (id: string) => void;
   replaceProject: (project: Project) => void;
   resetProject: () => void;
 }
@@ -380,6 +389,17 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
           );
           return { ...d, faces };
         }),
+      };
+      persist(project);
+      return { project };
+    }),
+
+  resetDieDefaults: (id) =>
+    set((s) => {
+      const project = {
+        ...s.project,
+        globalFontScale: DEFAULT_GLOBAL_FONT_SCALE,
+        dice: patchDie(s.project.dice, id, resetDieSliders),
       };
       persist(project);
       return { project };

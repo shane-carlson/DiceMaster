@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import { InfoTip } from "../ui/InfoTip";
 import { formatSignedPercent, percentToScale, scaleToPercent } from "../../engine/scalePercent";
+import { defaultTickRatio, snapToDefault } from "../../engine/sliderSnap";
 
 export function Slider({
   label,
@@ -11,6 +13,7 @@ export function Slider({
   onChange,
   suffix = "",
   display,
+  defaultValue,
 }: {
   label: string;
   hint: string;
@@ -21,7 +24,13 @@ export function Slider({
   onChange: (n: number) => void;
   suffix?: string;
   display?: (n: number) => string;
+  defaultValue?: number;
 }) {
+  const tick = defaultTickRatio(defaultValue, min, max);
+  const shown = display
+    ? display(value)
+    : `${Number.isInteger(step) ? value : value.toFixed(2)}${suffix}`;
+
   return (
     <div className="field">
       <div className="field-row">
@@ -29,20 +38,31 @@ export function Slider({
           {label}
           <InfoTip text={hint} />
         </label>
-        <span>
-          {display ? display(value) : `${Number.isInteger(step) ? value : value.toFixed(2)}${suffix}`}
-        </span>
+        <span>{shown}</span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        aria-valuetext={display ? display(value) : `${value}${suffix}`}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
+      <div className="slider-range">
+        {tick !== null && (
+          <span
+            className="slider-default-tick"
+            aria-hidden
+            title="Default"
+            style={{ "--tick": String(tick) } as CSSProperties}
+          />
+        )}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          aria-label={label}
+          aria-valuetext={display ? display(value) : `${value}${suffix}`}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            onChange(snapToDefault(next, defaultValue, min, max, step));
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -76,6 +96,7 @@ export function PercentSlider({
       min={minPct}
       max={maxPct}
       step={1}
+      defaultValue={0}
       display={formatSignedPercent}
       onChange={(p) => {
         const next = percentToScale(p, defaultValue);
