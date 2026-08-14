@@ -2,8 +2,6 @@
 
 A browser workshop for forging **custom polyhedral dice masters** and exporting them as millimetre-accurate **STL** files for 3D printing. Designed for D&D and other tabletop RPGs: start from a kit, change the typeface, park crests where numbers do not belong, then send the set to a resin printer.
 
-Inspired by [DiceMaker](https://ankhe.itch.io/dicemaker) by ankhee — the desktop tool for engraved dice masters — DiceMaster brings that craft to the web.
-
 ## What you can make
 
 - **Standard polyhedral set** — D4, D6, D8, D10, D%, D12, D20

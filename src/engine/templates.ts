@@ -35,7 +35,7 @@ export const SET_TEMPLATES: SetTemplate[] = [
     name: "Standard Polyhedral",
     tagline: "The classic seven",
     description:
-      "A full adventuring set — D4 through D20 plus percentile — at table-ready sizes.",
+      "A full adventuring set: D4 through D20 plus percentile, at table-ready sizes.",
     format: "standard",
     types: POLYHEDRAL_SET,
     featured: true,
@@ -65,7 +65,7 @@ export const SET_TEMPLATES: SetTemplate[] = [
     name: "Chonk D20",
     tagline: "The nat-20 slab",
     description:
-      "A single oversized D20 — the centerpiece of a character kit or a resin master.",
+      "A single oversized D20, the centerpiece of a character kit or a resin master.",
     format: "chonk",
     types: ["d20"],
     featured: true,
@@ -90,7 +90,7 @@ export const SET_TEMPLATES: SetTemplate[] = [
     id: "standard-core",
     name: "Core Six",
     tagline: "No percentile",
-    description: "D4, D6, D8, D10, D12, and D20 — the everyday RPG spread.",
+    description: "D4, D6, D8, D10, D12, and D20: the everyday RPG spread.",
     format: "standard",
     types: ["d4", "d6", "d8", "d10", "d12", "d20"],
   },
@@ -99,7 +99,7 @@ export const SET_TEMPLATES: SetTemplate[] = [
     name: "Crystal Kit",
     tagline: "Chart-scale gems",
     description:
-      "Caltrop, teardrop, and crystal D4s plus the full polyhedral spread at catalog heights — including 26mm and 45mm D20s.",
+      "Caltrop, teardrop, and crystal D4s plus the full polyhedral spread at catalog heights, including 26mm and 45mm D20s.",
     format: "standard",
     types: ["d4crystal", "d4teardrop", "d4", "d6", "d8", "d10", "d00", "d12", "d20"],
     pieces: CRYSTAL_KIT_CHART,

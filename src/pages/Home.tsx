@@ -34,9 +34,8 @@ export function Home() {
             worthy of <em>legend</em>
           </h1>
           <p className="lede">
-            Design custom polyhedral dice in the browser — fonts, crests, chonk D20s, mini travel
-            sets — then export STL masters for your own printer. Inspired by the craft of
-            DiceMaker, built for the web.
+            Design custom polyhedral dice in the browser: fonts, crests, chonk D20s, mini travel
+            sets, then export STL masters for your own printer.
           </p>
           {status === "signed-in" && user && (
             <p className="lede continue-line">
@@ -95,7 +94,7 @@ export function Home() {
       <section className="section">
         <h2>Size runes</h2>
         <p className="section-lead">
-          Characteristic size is the longest millimetre span of the die — what you would measure
+          Characteristic size is the longest millimetre span of the die, what you would measure
           with calipers.
         </p>
         <div className="card-grid">
