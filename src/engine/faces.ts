@@ -627,3 +627,24 @@ export function triangleToFaceMap(faces: DieFace[]): Map<number, number> {
   }
   return map;
 }
+
+/**
+ * Which logical face a local-space hit belongs to.
+ * Convex dice are centered at the origin, so the face whose outward normal
+ * best matches the hit direction is the one that was clicked — including on
+ * rounded shells, where plane-distance ties at vertices pick the wrong neighbor.
+ */
+export function pickFaceIndex(localPoint: Vector3, faces: DieFace[]): number | null {
+  if (faces.length === 0) return null;
+  let best = faces[0].index;
+  let bestScore = -Infinity;
+  for (const face of faces) {
+    const score = localPoint.dot(face.normal);
+    if (score > bestScore) {
+      bestScore = score;
+      best = face.index;
+    }
+  }
+  return best;
+}
+
