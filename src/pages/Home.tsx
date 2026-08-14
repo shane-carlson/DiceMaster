@@ -30,14 +30,14 @@ export function Home() {
       <section className="hero">
         <div>
           <p className="kicker">Tabletop · Resin masters · 3D print</p>
-          <h1>
-            Forge dice
-            <br />
-            worthy of <em>legend</em>
-          </h1>
+          <h1 className="home-name">DICEMASTER</h1>
+          <p className="home-tagline">
+            Forge dice worthy of <em>legend</em>
+          </p>
           <p className="lede">
-            Design custom polyhedral dice in the browser: fonts, crests, chonk D20s, mini travel
-            sets, then export STL masters for your own printer.
+            DiceMaster is a web app for designing custom polyhedral dice for Dungeons & Dragons
+            and other tabletop RPGs. Pick a kit, engrave fonts and crests, then export STL files for
+            3D printing. Create a DiceMaster account to save your workshop and dice sets.
           </p>
           {status === "signed-in" && user && (
             <p className="lede continue-line">
