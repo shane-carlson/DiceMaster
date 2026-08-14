@@ -68,15 +68,28 @@ export function faceMatrix(face: DieFace, zOffset: number, rotationDeg: number, 
   return m;
 }
 
+/** Convex hulls have no UVs; ExtrudeGeometry does. CSG requires the same attrs. */
+function csgEvaluator(): Evaluator {
+  const evaluator = new Evaluator();
+  evaluator.useGroups = false;
+  evaluator.attributes = ["position", "normal"];
+  return evaluator;
+}
+
+function prepareCsgGeometry(geometry: BufferGeometry): BufferGeometry {
+  if (!geometry.getAttribute("normal")) geometry.computeVertexNormals();
+  if (geometry.getAttribute("uv")) geometry.deleteAttribute("uv");
+  return geometry;
+}
+
 function applyRounding(body: BufferGeometry, amount: number): BufferGeometry {
   if (amount <= 0.001) return body;
   body.computeBoundingSphere();
   const r = (body.boundingSphere?.radius ?? 10) * (1 - amount * 0.14);
   const sphere = new SphereGeometry(r, 24, 16);
-  const evaluator = new Evaluator();
-  evaluator.useGroups = false;
-  const a = new Brush(body);
-  const b = new Brush(sphere);
+  const evaluator = csgEvaluator();
+  const a = new Brush(prepareCsgGeometry(body));
+  const b = new Brush(prepareCsgGeometry(sphere));
   a.updateMatrixWorld();
   b.updateMatrixWorld();
   const result = evaluator.evaluate(a, b, INTERSECTION);
@@ -88,14 +101,13 @@ function applyRounding(body: BufferGeometry, amount: number): BufferGeometry {
 function applyBumpers(body: BufferGeometry, size: number): BufferGeometry {
   const verts = uniqueVertices(body);
   if (verts.length === 0) return body;
-  const evaluator = new Evaluator();
-  evaluator.useGroups = false;
-  let current = new Brush(body);
+  const evaluator = csgEvaluator();
+  let current = new Brush(prepareCsgGeometry(body));
   current.updateMatrixWorld();
   for (const v of verts) {
     const sg = new SphereGeometry(size, 12, 10);
     sg.translate(v.x, v.y, v.z);
-    const brush = new Brush(sg);
+    const brush = new Brush(prepareCsgGeometry(sg));
     brush.updateMatrixWorld();
     current = evaluator.evaluate(current, brush, ADDITION);
   }
@@ -279,19 +291,26 @@ export async function buildDie(
 
 export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"]): BufferGeometry {
   if (build.glyphs.length === 0) return build.body.clone();
-  const evaluator = new Evaluator();
-  evaluator.useGroups = false;
+  const evaluator = csgEvaluator();
   const op = mode === "emboss" ? ADDITION : SUBTRACTION;
 
   const makeCutter = (glyph: PlacedGlyph) => {
-    const cutter = new Brush((glyph.cutter ?? glyph.geometry).clone());
+    const cutter = new Brush(prepareCsgGeometry((glyph.cutter ?? glyph.geometry).clone()));
     cutter.applyMatrix4(glyph.cutterMatrix ?? glyph.matrix);
     cutter.updateMatrixWorld();
     return cutter;
   };
 
-  const body = new Brush(build.body.clone());
+  const body = new Brush(prepareCsgGeometry(build.body.clone()));
   body.updateMatrixWorld();
+
+  const finish = (geom: BufferGeometry) => {
+    if (!geom.getAttribute("position") || geom.getAttribute("position")!.count < 3) {
+      return build.body.clone();
+    }
+    geom.computeVertexNormals();
+    return geom;
+  };
 
   try {
     let tool = makeCutter(build.glyphs[0]);
@@ -299,17 +318,17 @@ export function bakeEngraving(build: DieBuild, mode: DieInstance["engraveMode"])
       tool = evaluator.evaluate(tool, makeCutter(build.glyphs[i]), ADDITION);
     }
     const result = evaluator.evaluate(body, tool, op);
-    const geom = result.geometry.clone();
-    geom.computeVertexNormals();
-    return geom;
+    return finish(result.geometry.clone());
   } catch {
-    let current = body;
-    for (const glyph of build.glyphs) {
-      current = evaluator.evaluate(current, makeCutter(glyph), op);
+    try {
+      let current = body;
+      for (const glyph of build.glyphs) {
+        current = evaluator.evaluate(current, makeCutter(glyph), op);
+      }
+      return finish(current.geometry.clone());
+    } catch {
+      return build.body.clone();
     }
-    const geom = current.geometry.clone();
-    geom.computeVertexNormals();
-    return geom;
   }
 }
 

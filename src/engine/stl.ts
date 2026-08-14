@@ -139,6 +139,10 @@ export async function exportPackedPlateStl(
     placed.push(piece.geom);
   }
 
+  for (const geom of placed) {
+    if (geom.getAttribute("uv")) geom.deleteAttribute("uv");
+    if (!geom.getAttribute("normal")) geom.computeVertexNormals();
+  }
   const merged =
     placed.length <= 1 ? placed[0]! : (mergeGeometries(placed, false) ?? placed[0]!);
   merged.rotateX(-Math.PI / 2);
