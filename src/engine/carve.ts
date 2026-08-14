@@ -25,8 +25,8 @@ const ENGRAVE_THROUGH_MM = 3;
 const EMBOSS_OVERLAP = 0.2;
 
 /**
- * Preview ink is a thin slab sitting on the face. A deep well is invisible
- * inside the uncut body, and polygon-offset on those walls draws outlines.
+ * Preview numerals sit this far off the face as a flat decal (mm).
+ * A 3D slab's back cap z-fights the die and reads as white.
  */
 export const PREVIEW_INK_HEIGHT = 0.18;
 
