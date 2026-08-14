@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { arrayBufferToBase64, BUILTIN_FONTS } from "../../engine/fonts";
 import { previewFacesForSet, type FacePreview } from "../../engine/facePreview";
+import { numeralInk } from "../../engine/ink";
 import type { FaceKind } from "../../engine/types";
 import { useProjectStore } from "../../store/projectStore";
 
@@ -62,7 +63,7 @@ function FaceCell({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={fontSize}
-                fill="#120c08"
+                fill={numeralInk(face.dieColor)}
                 fontWeight={700}
               >
                 {m.text}

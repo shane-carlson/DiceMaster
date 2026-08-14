@@ -9,6 +9,7 @@ import {
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
 import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
+import { numeralInk } from "../../engine/ink";
 
 function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   const ref = useRef<ThreeMesh>(null);
@@ -25,8 +26,8 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
       <meshBasicMaterial
         color={color}
         polygonOffset
-        polygonOffsetFactor={-2}
-        polygonOffsetUnits={-2}
+        polygonOffsetFactor={-4}
+        polygonOffsetUnits={-4}
       />
     </mesh>
   );
@@ -111,17 +112,17 @@ export function DieMesh({
       <mesh geometry={displayBody} onClick={onClick}>
         <meshStandardMaterial
           color={color}
-          roughness={inspectFace ? 0.62 : 0.52}
+          roughness={inspectFace ? 0.46 : 0.52}
           metalness={0.02}
-          emissive={inspectFace ? "#000000" : selected ? "#5c4018" : "#110a06"}
-          emissiveIntensity={inspectFace ? 0 : selected ? 0.28 : 0.04}
+          emissive={inspectFace ? color : selected ? "#5c4018" : "#110a06"}
+          emissiveIntensity={inspectFace ? 0.18 : selected ? 0.28 : 0.04}
         />
       </mesh>
       {glyphs.map((g, i) => (
         <GlyphMesh
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
-          color={g.role === "emblem" ? "#f0d78a" : inspectFace ? "#0a0604" : "#070504"}
+          color={numeralInk(color, g.role === "emblem" ? "emblem" : "primary")}
         />
       ))}
       {highlight && (
