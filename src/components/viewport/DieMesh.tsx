@@ -4,11 +4,10 @@ import {
   BufferGeometry,
   DoubleSide,
   Mesh as ThreeMesh,
-  Vector3,
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
-import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
+import { faceOutline3D, geometryFromFaces, pickFaceIndex, type DieFace } from "../../engine/faces";
 import { numeralInk } from "../../engine/ink";
 
 function GlyphMesh({
@@ -42,19 +41,7 @@ function GlyphMesh({
   );
 }
 
-function closestFaceIndex(localPoint: Vector3, faces: DieFace[]): number | null {
-  if (faces.length === 0) return null;
-  let best = faces[0].index;
-  let bestD = Infinity;
-  for (const face of faces) {
-    const d = Math.abs(localPoint.clone().sub(face.center).dot(face.normal));
-    if (d < bestD) {
-      bestD = d;
-      best = face.index;
-    }
-  }
-  return best;
-}
+function noopRaycast() {}
 
 export function DieMesh({
   body,
@@ -65,6 +52,7 @@ export function DieMesh({
   selectedFace,
   inspectFace = false,
   rounded = false,
+  interactive = true,
   onSelectFace,
   onSelectDie,
 }: {
@@ -76,6 +64,7 @@ export function DieMesh({
   selectedFace: number | null;
   inspectFace?: boolean;
   rounded?: boolean;
+  interactive?: boolean;
   onSelectFace: (index: number) => void;
   onSelectDie: () => void;
 }) {
@@ -116,14 +105,19 @@ export function DieMesh({
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const local = e.object.worldToLocal(e.point.clone());
-    const mapped = closestFaceIndex(local, faces);
+    const mapped = pickFaceIndex(local, faces);
     if (mapped !== null) onSelectFace(mapped);
     else onSelectDie();
   };
 
   return (
     <group>
-      <mesh geometry={displayBody} onClick={onClick}>
+      <mesh
+        geometry={displayBody}
+        visible={interactive}
+        raycast={interactive ? undefined : noopRaycast}
+        onClick={interactive ? onClick : undefined}
+      >
         <meshStandardMaterial
           color={color}
           roughness={inspectFace ? 0.46 : 0.52}

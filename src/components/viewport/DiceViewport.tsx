@@ -256,6 +256,7 @@ function PlacedDie({
         selectedFace={selected ? selectedFaceIndex : null}
         inspectFace={previewMode === "face" && selected}
         rounded={build?.rounded ?? die.cornerRounding > 0.004}
+        interactive={!hidden}
         onSelectDie={() => selectDie(die.id)}
         onSelectFace={(i) => focusDieFace(die.id, i)}
       />
