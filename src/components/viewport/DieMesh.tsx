@@ -34,8 +34,6 @@ function GlyphMesh({
       <meshBasicMaterial
         color={color}
         toneMapped={false}
-        depthWrite={false}
-        side={DoubleSide}
         polygonOffset
         polygonOffsetFactor={inspectFace ? -2 : -1}
         polygonOffsetUnits={inspectFace ? -24 : -12}
@@ -127,6 +125,9 @@ export function DieMesh({
           metalness={0.02}
           emissive={inspectFace ? "#000000" : selected ? "#5c4018" : "#110a06"}
           emissiveIntensity={inspectFace ? 0 : selected ? 0.28 : 0.04}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
         />
       </mesh>
       {glyphs.map((g, i) => (

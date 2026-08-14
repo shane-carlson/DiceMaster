@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import opentype from "opentype.js";
 import { Vector3, Shape } from "three";
 import {
   extractFaces,
@@ -11,9 +13,13 @@ import {
 import { createDieGeometry } from "./geometry";
 import { numericLabel, numberFaces, oppositeSum } from "./numbering";
 import type { DieType } from "./types";
-import { faceMatrix } from "./buildDie";
+import { faceMatrix, buildDie } from "./buildDie";
 import { extrudeShapes } from "./glyphs";
 import { DEFAULT_DEPTH } from "./sizes";
+import { createDie } from "./defaults";
+import { PREVIEW_INK_HEIGHT } from "./carve";
+
+const font = opentype.parse(readFileSync("public/fonts/Oswald-Bold.ttf").buffer);
 
 const TYPES: DieType[] = [
   "d4",
@@ -325,7 +331,7 @@ describe("face centers", () => {
 });
 
 describe("carved preview wells", () => {
-  it("sits engraved preview geometry below the face by the default depth", () => {
+  it("can extrude a closed well from the face down to the default depth", () => {
     const depth = DEFAULT_DEPTH.standard;
     const s = new Shape();
     s.moveTo(-1, -1);
@@ -351,4 +357,26 @@ describe("carved preview wells", () => {
     expect(min).toBeLessThan(-depth * 0.9);
     expect(min).toBeGreaterThan(-depth - 0.08);
   });
+
+  it("places workshop preview numerals as a thin slab on the face", async () => {
+    const die = createDie("d8", "standard");
+    const build = await buildDie(die, font, [], 1, "preview");
+    const glyph = build.glyphs[0];
+    expect(glyph).toBeTruthy();
+    const face = build.faces.find((f) => f.index === glyph!.faceIndex);
+    expect(face).toBeTruthy();
+    const pos = glyph!.geometry.getAttribute("position");
+    const v = new Vector3();
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(glyph!.matrix);
+      const along = v.clone().sub(face!.center).dot(face!.normal);
+      min = Math.min(min, along);
+      max = Math.max(max, along);
+    }
+    expect(min).toBeGreaterThan(-0.02);
+    expect(max).toBeGreaterThan(PREVIEW_INK_HEIGHT * 0.7);
+    expect(max).toBeLessThan(PREVIEW_INK_HEIGHT + 0.05);
+  }, 15_000);
 });

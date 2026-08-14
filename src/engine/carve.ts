@@ -25,6 +25,12 @@ const ENGRAVE_THROUGH_MM = 3;
 const EMBOSS_OVERLAP = 0.2;
 
 /**
+ * Preview ink is a thin slab sitting on the face. A deep well is invisible
+ * inside the uncut body, and polygon-offset on those walls draws outlines.
+ */
+export const PREVIEW_INK_HEIGHT = 0.18;
+
+/**
  * Centered cutter so CSG crosses the face and the cut floor sits at -depth (engrave)
  * or the raised top at +depth (emboss).
  */

@@ -8,7 +8,7 @@ import type { Font } from "opentype.js";
 import { extractFaces, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry } from "./geometry";
 import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
-import { cutterPlacement, resolveCarveDepth } from "./carve";
+import { cutterPlacement, PREVIEW_INK_HEIGHT, resolveCarveDepth } from "./carve";
 import { numberFaces, type NumberedFace } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
@@ -27,7 +27,7 @@ export interface PlacedGlyph {
   oy: number;
   rotation: number;
   shapes: GlyphShapeContours[];
-  /** True when the preview mesh occupies [-depth, 0] along the outward normal. */
+  /** True when the die is engraved (not embossed). Preview ink still sits on the face. */
   inset: boolean;
 }
 
@@ -107,8 +107,8 @@ async function placedFromGlyph(
           font,
           logos,
           fit,
-          depth,
-          inset ? "inset" : "outset",
+          inset ? PREVIEW_INK_HEIGHT : depth,
+          "outset",
           false,
           segments,
         );
@@ -143,11 +143,11 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   const cut = cutterPlacement(depth, die.engraveMode);
   const pts = pipPositions(value, span);
   const inset = die.engraveMode !== "emboss";
+  const previewH = inset ? PREVIEW_INK_HEIGHT : depth;
   return pts.map((p) => {
-    const preview = new CylinderGeometry(radius, radius, depth, 20);
+    const preview = new CylinderGeometry(radius, radius, previewH, 20);
     preview.rotateX(Math.PI / 2);
-    if (inset) preview.translate(0, 0, -depth / 2);
-    else preview.translate(0, 0, depth / 2);
+    preview.translate(0, 0, previewH / 2);
     const cutter = new CylinderGeometry(radius, radius, cut.height, 20);
     cutter.rotateX(Math.PI / 2);
     return {
