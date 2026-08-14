@@ -4,6 +4,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useProjectStore } from "../../store/projectStore";
 import { saveCurrentSet } from "../../sync/workspaceSync";
 import { Brand } from "./Brand";
+import { HostExitLink } from "./HostExitLink";
 import { UserLinks } from "./UserLinks";
 
 export function TopBar({ onExport }: { onExport: () => void }) {
@@ -34,6 +35,7 @@ export function TopBar({ onExport }: { onExport: () => void }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        <HostExitLink />
         <Brand />
         <input
           className="project-name"
