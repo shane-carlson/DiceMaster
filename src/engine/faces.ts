@@ -36,6 +36,7 @@ function makeFrame(
 
   const useLongAxis = type === "d10" || type === "d00" || type === "d4crystal";
   if (useLongAxis && vertices.length >= 3) {
+    // Kite / crystal: point the numeral at the sharp (farthest) vertex.
     let farthest = vertices[0];
     let best = 0;
     for (const v of vertices) {
@@ -47,13 +48,15 @@ function makeFrame(
     }
     up = farthest.clone().sub(center);
     up.sub(n.clone().multiplyScalar(up.dot(n)));
-  } else if (vertices.length === 3) {
-    // Aim the numeral at the sharpest vertex (crystal d4 / isosceles),
-    // breaking ties toward world-up so equilateral faces stay stable.
+  } else if (vertices.length === 3 || vertices.length >= 5) {
+    // D8 / D12 / D20: point toward the polar vertex (base of the glyph
+    // sits toward the equator) so the number reads upright at the pole.
     let top = vertices[0];
     let best = -Infinity;
     for (const v of vertices) {
-      const score = v.distanceToSquared(center) + v.y * 1e-4;
+      const polar = Math.abs(v.y);
+      const sharp = v.distanceToSquared(center);
+      const score = polar * 1e3 + sharp * 1e-4;
       if (score > best) {
         best = score;
         top = v;
