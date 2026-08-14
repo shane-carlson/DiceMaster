@@ -91,6 +91,7 @@ describe("face inspect framing", () => {
     const d6 = extractFaces(createDieGeometry("d6", 16), "d6")[0];
     const close = faceViewDistance(d20);
     const cube = faceViewDistance(d6);
+    expect(close).toBeGreaterThanOrEqual(10);
     expect(close).toBeLessThan(cube * 0.75);
     expect(close).toBeLessThan(20);
     const r = faceCircumradius(d20);

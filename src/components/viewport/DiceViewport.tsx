@@ -310,7 +310,7 @@ export function DiceViewport({ font }: { font: Font | null }) {
           <OrbitControls
             makeDefault
             enablePan
-            minDistance={inspectingFace ? 3 : layout.minDistance}
+            minDistance={inspectingFace ? 8 : layout.minDistance}
             maxDistance={layout.maxDistance}
           />
           <FocusOnDie

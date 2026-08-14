@@ -23,7 +23,14 @@ function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
 
   return (
     <mesh ref={ref} geometry={glyph.geometry} renderOrder={2}>
-      <meshBasicMaterial color={color} depthWrite={false} />
+      <meshBasicMaterial
+        color={color}
+        toneMapped={false}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-12}
+      />
     </mesh>
   );
 }
@@ -109,11 +116,8 @@ export function DieMesh({
           color={color}
           roughness={inspectFace ? 0.46 : 0.52}
           metalness={0.02}
-          emissive={inspectFace ? color : selected ? "#5c4018" : "#110a06"}
-          emissiveIntensity={inspectFace ? 0.18 : selected ? 0.28 : 0.04}
-          polygonOffset
-          polygonOffsetFactor={1}
-          polygonOffsetUnits={1}
+          emissive={inspectFace ? "#000000" : selected ? "#5c4018" : "#110a06"}
+          emissiveIntensity={inspectFace ? 0 : selected ? 0.28 : 0.04}
         />
       </mesh>
       {glyphs.map((g, i) => (

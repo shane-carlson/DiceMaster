@@ -101,7 +101,7 @@ export function faceViewDistance(face: DieFace, fovDeg = 46): number {
   const inner = faceInradius(face);
   const r = Math.max(circum, inner * 1.2, 2);
   const half = ((fovDeg / 2) * Math.PI) / 180;
-  return Math.max(r / Math.tan(half * 0.9), 6);
+  return Math.max(r / Math.tan(half * 0.9), 10);
 }
 
 export function dieViewPose(

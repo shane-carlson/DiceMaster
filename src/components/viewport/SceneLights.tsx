@@ -8,8 +8,8 @@ export function SceneLights({ dimmed = false }: { dimmed?: boolean }) {
   if (dimmed) {
     return (
       <>
-        <ambientLight color="#f0e2c4" intensity={1.25} />
-        <hemisphereLight color="#fff6e0" groundColor="#5a3a22" intensity={0.9} />
+        <ambientLight color="#f0e2c4" intensity={1.45} />
+        <hemisphereLight color="#fff6e0" groundColor="#5a3a22" intensity={1.05} />
       </>
     );
   }

@@ -9,7 +9,7 @@ export function hexLuminance(hex: string): number {
 }
 
 export const INK_DARK = "#1a1008";
-export const INK_LIGHT = "#f7f1e4";
+export const INK_LIGHT = "#fff8ee";
 export const EMBLEM_INK = "#f0d78a";
 
 /** WCAG contrast ratio between two hex colors. */
@@ -26,7 +26,6 @@ export function numeralInk(
   role: "primary" | "emblem" | "pip" = "primary",
 ): string {
   if (role === "emblem") return EMBLEM_INK;
-  return contrastRatio(dieColor, INK_LIGHT) >= contrastRatio(dieColor, INK_DARK)
-    ? INK_LIGHT
-    : INK_DARK;
+  // Preview lighting underexposes mid-tones; prefer parchment unless the pigment is truly light.
+  return hexLuminance(dieColor) < 0.4 ? INK_LIGHT : INK_DARK;
 }

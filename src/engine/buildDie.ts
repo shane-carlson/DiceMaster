@@ -134,7 +134,7 @@ async function placedFromGlyph(
   const cutterZ = die.engraveMode === "emboss" ? depth * 0.5 : -depth * 0.25;
   return {
     geometry: preview.geometry,
-    matrix: faceMatrix(face, 0, rotation, ox, oy),
+    matrix: faceMatrix(face, inset ? 0.05 : 0, rotation, ox, oy),
     wellMatrix: faceMatrix(face, wellZ, rotation, ox, oy),
     cutter: cutter.geometry,
     cutterMatrix: faceMatrix(face, cutterZ, rotation, ox, oy),
@@ -168,7 +168,7 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
     cutter.rotateX(Math.PI / 2);
     return {
       geometry: preview,
-      matrix: faceMatrix(face, 0, 0, p.x, p.y),
+      matrix: faceMatrix(face, inset ? 0.05 : 0, 0, p.x, p.y),
       wellMatrix: faceMatrix(face, -depth, 0, p.x, p.y),
       cutter,
       cutterMatrix: faceMatrix(
