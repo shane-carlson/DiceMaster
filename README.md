@@ -11,7 +11,7 @@ A browser workshop for forging **custom polyhedral dice masters** and exporting 
 - Crystal D4, D2 coin, pip-style D6
 - Maker tokens (coin, shield, hex, octagon, diamond, triangle, almond) at 25×3.5mm
 - Custom TTF/OTF fonts, 37 built-in OFL faces (fantasy, sci-fi, arcade), SVG/PNG logos, and a symbol vault
-- Per-face offset, rotation, scale, underscored 6/9, corner emblems, bumpers, engrave or emboss
+- Per-face offset, rotation, scale, 6/9 orientation marks (underline, dot, or arrow), corner emblems, bumpers, engrave or emboss
 - Project save/load (JSON) and STL export (single file or ZIP)
 
 STL units are millimetres (`1` unit = `1` mm). Open the files in Chitubox, Lychee, PrusaSlicer, or similar.

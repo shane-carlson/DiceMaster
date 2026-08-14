@@ -106,6 +106,7 @@ async function placedFromGlyph(
     "center",
     false,
     segments,
+    die.digitAnchor ?? "underline",
   );
   if (!cutter) return null;
   const preview =
@@ -120,6 +121,7 @@ async function placedFromGlyph(
           inset ? "decal" : "outset",
           false,
           segments,
+          die.digitAnchor ?? "underline",
         );
   if (!preview) return null;
   const ox = (placement?.ox ?? 0) + glyph.offsetX * fit * 0.45;
@@ -217,7 +219,6 @@ export async function buildDie(
         const glyph = {
           ...settings.primary,
           text: corner.label,
-          underscore: corner.label === "6" || corner.label === "9",
         };
         const placed = await placedFromGlyph(
           glyph,

@@ -3,6 +3,7 @@ import { defaultBumperSize, sizeFor } from "./sizes";
 import { defaultCarveDepth, resolveCarveDepth } from "./carve";
 import { TOKEN_DIAMETER_MM, resolveTokenShape } from "./token";
 import type {
+  DigitAnchor,
   DieInstance,
   DieType,
   D10Style,
@@ -10,7 +11,13 @@ import type {
   GlyphSettings,
   SizeFormatId,
 } from "./types";
-import { DIE_COLORS, DIE_FACE_COUNT, DIE_LABELS } from "./types";
+import {
+  DIE_COLORS,
+  DIE_FACE_COUNT,
+  DIE_LABELS,
+  isDigitAnchor,
+  needsDigitAnchor,
+} from "./types";
 
 export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
   switch (type) {
@@ -47,6 +54,7 @@ export const DEFAULT_GLOBAL_FONT_SCALE = 1;
 export const DEFAULT_CORNER_ROUNDING = 0;
 /** Factory rounding before it was set to 0. Migrated to 0 when loading old sets. */
 export const LEGACY_DEFAULT_CORNER_ROUNDING = 0.18;
+export const DEFAULT_DIGIT_ANCHOR: DigitAnchor = "underline";
 
 export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
   return {
@@ -129,6 +137,7 @@ export function createDie(
     engraveMode: "engrave",
     d10Style,
     numberStyle: "numerals",
+    digitAnchor: extras.digitAnchor ?? DEFAULT_DIGIT_ANCHOR,
     tokenShape: type === "token" ? resolveTokenShape(extras.tokenShape) : extras.tokenShape,
     faces: makeFaces(type, d10Style),
   };
@@ -181,6 +190,21 @@ export function ensureCornerRounding(die: DieInstance): DieInstance {
     return { ...die, cornerRounding: DEFAULT_CORNER_ROUNDING };
   }
   return die;
+}
+
+function inferDigitAnchor(die: DieInstance): DigitAnchor {
+  if (isDigitAnchor(die.digitAnchor)) return die.digitAnchor;
+  const marks = die.faces.flatMap((f) => [f.primary, ...(f.emblem ? [f.emblem] : [])]);
+  const sixNine = marks.filter((g) => needsDigitAnchor(g.text));
+  if (sixNine.length > 0 && sixNine.every((g) => g.underscore === false)) return "none";
+  return DEFAULT_DIGIT_ANCHOR;
+}
+
+/** Fill in 6/9 marks from saved JSON. Per-glyph underscore: false on every 6/9 becomes none. */
+export function ensureDigitAnchor(die: DieInstance): DieInstance {
+  const digitAnchor = inferDigitAnchor(die);
+  if (die.digitAnchor === digitAnchor) return die;
+  return { ...die, digitAnchor };
 }
 
 export function resetGlyphPlacement(

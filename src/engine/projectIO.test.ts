@@ -29,4 +29,34 @@ describe("normalizeProject", () => {
     const raw = serializeProject(projectWith(0.18));
     expect(parseProject(raw).dice[0].cornerRounding).toBe(0);
   });
+
+  it("fills in a 6/9 mark when loading old JSON", () => {
+    const project = projectWith(0);
+    const raw = JSON.parse(serializeProject(project)) as { dice: Array<{ digitAnchor?: string }> };
+    delete raw.dice[0].digitAnchor;
+    expect(parseProject(JSON.stringify(raw)).dice[0].digitAnchor).toBe("underline");
+  });
+
+  it("migrates fully unchecked 6/9 underscores to none", () => {
+    const die = createDie("d6");
+    for (const face of die.faces) {
+      if (face.primary.text === "6" || face.primary.text === "9") {
+        face.primary.underscore = false;
+      }
+    }
+    const project = {
+      version: 1 as const,
+      name: "Legacy",
+      fontId: "oswald",
+      globalDepth: 0.77,
+      globalFontScale: 1,
+      dice: [die],
+      logos: [],
+    };
+    const raw = JSON.parse(serializeProject(project)) as {
+      dice: Array<{ digitAnchor?: string }>;
+    };
+    delete raw.dice[0].digitAnchor;
+    expect(parseProject(JSON.stringify(raw)).dice[0].digitAnchor).toBe("none");
+  });
 });
