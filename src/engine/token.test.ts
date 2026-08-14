@@ -20,7 +20,7 @@ import { buildDie } from "./buildDie";
 const font = opentype.parse(readFileSync("public/fonts/Oswald-Bold.ttf").buffer);
 
 describe("maker token", () => {
-  it("defaults to 25mm diameter, 15mm thick, coin silhouette, blank faces", () => {
+  it("defaults to 25mm diameter, 3.5mm thick, coin silhouette, blank faces", () => {
     const die = createDie("token");
     expect(die.name).toBe("Maker Token");
     expect(die.sizeMm).toBe(TOKEN_DIAMETER_MM);
@@ -52,7 +52,7 @@ describe("maker token", () => {
     });
   }
 
-  it("keeps thickness at 15mm when diameter changes", () => {
+  it("keeps thickness at 3.5mm when diameter changes", () => {
     const geo = createTokenGeometry("hexagon", 40);
     const { diameter, thickness } = tokenBounds(geo);
     expect(diameter).toBeCloseTo(40, 2);
