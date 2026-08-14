@@ -4,7 +4,8 @@ import {
   Vector3,
 } from "three";
 import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
-import type { DieType } from "./types";
+import type { DieType, TokenShape } from "./types";
+import { createTokenGeometry } from "./token";
 
 const PHI = (1 + Math.sqrt(5)) / 2;
 
@@ -367,7 +368,11 @@ export function uniqueVertices(geometry: BufferGeometry, eps = 1e-5): Vector3[] 
   return out;
 }
 
-export function createDieGeometry(type: DieType, sizeMm: number): BufferGeometry {
+export function createDieGeometry(
+  type: DieType,
+  sizeMm: number,
+  tokenShape: TokenShape = "coin",
+): BufferGeometry {
   switch (type) {
     case "d2": {
       const radius = sizeMm * 0.5;
@@ -376,6 +381,8 @@ export function createDieGeometry(type: DieType, sizeMm: number): BufferGeometry
       geom.computeVertexNormals();
       return geom;
     }
+    case "token":
+      return createTokenGeometry(tokenShape, sizeMm);
     case "d4":
       return hullToHeight(tetrahedronVertices(), sizeMm);
     case "d4crystal":

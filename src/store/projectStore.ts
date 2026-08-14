@@ -12,6 +12,7 @@ import { uid } from "../engine/id";
 import { loadLocal, saveLocal, normalizeProject } from "../engine/projectIO";
 import { diceFromTemplate, templateById } from "../engine/templates";
 import { defaultCarveDepth } from "../engine/carve";
+import { TOKEN_DIAMETER_MM } from "../engine/token";
 import type {
   DieInstance,
   DieType,
@@ -255,6 +256,14 @@ export const useProjectStore = create<WorkshopState>((set, get) => ({
           let next = { ...d, ...patch, id: d.id };
           if (patch.type && patch.type !== d.type) {
             next = ensureFaceCount({ ...next, type: patch.type });
+            if (patch.type === "token") {
+              next = {
+                ...next,
+                tokenShape: next.tokenShape ?? "coin",
+                sizeMm: TOKEN_DIAMETER_MM,
+                sizeFormat: "custom",
+              };
+            }
           }
           if (patch.d10Style && patch.d10Style !== d.d10Style) {
             next = ensureFaceCount(next);

@@ -1,6 +1,7 @@
 import { uid } from "./id";
 import { defaultBumperSize, sizeFor } from "./sizes";
 import { defaultCarveDepth, resolveCarveDepth } from "./carve";
+import { TOKEN_DIAMETER_MM, resolveTokenShape } from "./token";
 import type {
   DieInstance,
   DieType,
@@ -33,6 +34,8 @@ export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
       return Array.from({ length: 12 }, (_, i) => String(i + 1));
     case "d20":
       return Array.from({ length: 20 }, (_, i) => String(i + 1));
+    case "token":
+      return ["", ""];
   }
 }
 
@@ -76,7 +79,28 @@ export function makeGlyph(text: string): GlyphSettings {
   };
 }
 
+export function makeBlankGlyph(): GlyphSettings {
+  return {
+    kind: "blank",
+    text: "",
+    symbolId: null,
+    logoId: null,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    scale: DEFAULT_GLYPH_SCALE,
+    depth: null,
+    underscore: false,
+  };
+}
+
 export function makeFaces(type: DieType, d10Style: D10Style): FaceSettings[] {
+  if (type === "token") {
+    return Array.from({ length: DIE_FACE_COUNT.token }, () => ({
+      primary: makeBlankGlyph(),
+      emblem: null,
+    }));
+  }
   return defaultLabels(type, d10Style).map((text) => ({
     primary: makeGlyph(text),
     emblem: null,
@@ -105,8 +129,14 @@ export function createDie(
     engraveMode: "engrave",
     d10Style,
     numberStyle: "numerals",
+    tokenShape: type === "token" ? resolveTokenShape(extras.tokenShape) : extras.tokenShape,
     faces: makeFaces(type, d10Style),
   };
+  if (type === "token") {
+    die.sizeMm = extras.sizeMm ?? TOKEN_DIAMETER_MM;
+    die.sizeFormat = extras.sizeFormat ?? "custom";
+    die.name = extras.name ?? DIE_LABELS.token;
+  }
   return ensureCarveDepth({ ...die, ...extras, type, faces: extras.faces ?? die.faces });
 }
 
@@ -124,6 +154,13 @@ export function ensureCarveDepth(die: DieInstance): DieInstance {
   const engravingDepth = resolveCarveDepth(die);
   if (die.engravingDepth === engravingDepth) return die;
   return { ...die, engravingDepth };
+}
+
+export function ensureTokenShape(die: DieInstance): DieInstance {
+  if (die.type !== "token") return die;
+  const tokenShape = resolveTokenShape(die.tokenShape);
+  if (die.tokenShape === tokenShape) return die;
+  return { ...die, tokenShape };
 }
 
 export function ensureFaceCount(die: DieInstance): DieInstance {
@@ -165,7 +202,11 @@ export function resetGlyphPlacement(
 /** Restore inspector sliders and option chips; keep type, name, and face inscriptions. */
 export function resetDieSliders(die: DieInstance): DieInstance {
   const format: SizeFormatId = die.sizeFormat === "custom" ? "standard" : die.sizeFormat;
-  const fresh = createDie(die.type, format, { id: die.id, name: die.name });
+  const fresh = createDie(die.type, format, {
+    id: die.id,
+    name: die.name,
+    tokenShape: die.tokenShape,
+  });
   return {
     ...fresh,
     faces: die.faces.map((face) => ({

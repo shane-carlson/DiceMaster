@@ -63,7 +63,7 @@ function glyphMark(glyph: GlyphSettings, span: number, fallbackText: string): Fa
 }
 
 function projectFace(die: DieInstance): FacePreview[] {
-  const geom = createDieGeometry(die.type, die.sizeMm);
+  const geom = createDieGeometry(die.type, die.sizeMm, die.tokenShape);
   const faces = numberFaces(die.type, extractFaces(geom, die.type), die.d10Style);
   const vertexLabels = usesVertexNumerals(die.type) ? tetraOppositeVertexLabels(faces) : null;
   const filletMm = filletRadiusMm(die.sizeMm, die.cornerRounding);

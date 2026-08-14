@@ -153,7 +153,7 @@ export function numberFaces(
     for (let i = 0; i < Math.min(4, faces.length); i++) {
       byIndex(faces[i]).label = labels[i] ?? String(i + 1);
     }
-  } else if (type === "d2") {
+  } else if (type === "d2" || type === "token") {
     faces.forEach((f, i) => {
       byIndex(f).label = labels[i] ?? String(i + 1);
     });

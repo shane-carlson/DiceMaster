@@ -154,6 +154,14 @@ export function LibraryPanel({ onOpenFaceEditor }: { onOpenFaceEditor?: () => vo
         ))}
       </div>
 
+      <h2>Add-ons</h2>
+      <p className="help">Two-faced maker tokens, 25mm across and 5mm thick. Pick a silhouette in the Inspector.</p>
+      <div className="chip-row">
+        <button className="type-btn" onClick={() => addDie("token")}>
+          Maker token
+        </button>
+      </div>
+
       <h2>This set</h2>
       <div className="chip-row" style={{ marginBottom: 10 }}>
         {onOpenFaceEditor && (

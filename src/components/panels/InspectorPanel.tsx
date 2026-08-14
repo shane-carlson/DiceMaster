@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { DIE_COLORS, DIE_LABELS, type FaceKind, type SizeFormatId } from "../../engine/types";
+import { DIE_COLORS, DIE_LABELS, TOKEN_SHAPES, TOKEN_SHAPE_LABELS, type FaceKind, type SizeFormatId, type TokenShape } from "../../engine/types";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
 import {
   DEFAULT_CORNER_ROUNDING,
@@ -11,6 +11,7 @@ import {
 } from "../../engine/defaults";
 import { defaultBumperSize, sizeFor } from "../../engine/sizes";
 import { defaultCarveDepth } from "../../engine/carve";
+import { glyphSizeSliderMax, TOKEN_DIAMETER_MM, TOKEN_THICKNESS_MM } from "../../engine/token";
 import { GlyphPlace } from "./GlyphPlace";
 import { PercentSlider, Slider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
@@ -81,6 +82,12 @@ export function InspectorPanel() {
         <p className="help">
           Teardrop D4s land on four long triangular faces (~80% of the length). The short
           four-sided cap is unnumbered; numerals point toward the cap.
+        </p>
+      )}
+      {die.type === "token" && (
+        <p className="help">
+          Maker tokens are two-faced add-ons: {TOKEN_THICKNESS_MM}mm thick, {TOKEN_DIAMETER_MM}mm
+          across by default. Symbols and logos can fill up to 90% of the face.
         </p>
       )}
       {!face && (
@@ -154,7 +161,7 @@ export function InspectorPanel() {
           <GlyphPlace
             glyph={face.primary}
             sizeMin={0.3}
-            sizeMax={2.2}
+            sizeMax={glyphSizeSliderMax(die.type, face.primary.kind, "primary")}
             onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "primary", patch)}
           />
           <div className="field">
@@ -236,11 +243,12 @@ export function InspectorPanel() {
                 </HintedField>
               )}
               <GlyphPlace
-            glyph={face.emblem}
-            defaultScale={DEFAULT_EMBLEM_SCALE}
-            defaultOffsetY={DEFAULT_EMBLEM_OFFSET_Y}
-            onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
-          />
+                glyph={face.emblem}
+                defaultScale={DEFAULT_EMBLEM_SCALE}
+                defaultOffsetY={DEFAULT_EMBLEM_OFFSET_Y}
+                sizeMax={glyphSizeSliderMax(die.type, face.emblem.kind, "emblem")}
+                onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
+              />
               <button
                 className="btn btn-small"
                 onClick={() => state.updateFaceGlyph(die.id, faceNo, "emblem", null)}
@@ -293,6 +301,24 @@ export function InspectorPanel() {
           ))}
         </select>
       </HintedField>
+      {die.type === "token" && (
+        <HintedField
+          label="Silhouette"
+          hint="Two-faced token outline. Thickness stays 5mm; only the face shape changes."
+        >
+          <div className="chip-row">
+            {TOKEN_SHAPES.map((shape) => (
+              <button
+                key={shape}
+                className={`chip ${die.tokenShape === shape ? "active" : ""}`}
+                onClick={() => state.updateDie(die.id, { tokenShape: shape as TokenShape })}
+              >
+                {TOKEN_SHAPE_LABELS[shape]}
+              </button>
+            ))}
+          </div>
+        </HintedField>
+      )}
       <HintedField
         label="Size format"
         hint="Preset body sizes. Mini, standard, chonk, and giant match common tabletop scales. Custom unlocks the millimetre slider."
@@ -317,7 +343,11 @@ export function InspectorPanel() {
       </HintedField>
       <Slider
         label="Size"
-        hint="Across-flats body size in millimetres. Moving this slider switches the die to a custom size."
+        hint={
+          die.type === "token"
+            ? `Face diameter in millimetres. Thickness stays ${TOKEN_THICKNESS_MM}mm.`
+            : "Across-flats body size in millimetres. Moving this slider switches the die to a custom size."
+        }
         value={die.sizeMm}
         min={8}
         max={60}

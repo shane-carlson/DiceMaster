@@ -16,6 +16,7 @@ import { SymbolSelect } from "./SymbolPicker";
 import { HintedField } from "../ui/InfoTip";
 import { useCatalogStore } from "../../store/catalogStore";
 import { useProjectStore } from "../../store/projectStore";
+import { glyphSizeSliderMax } from "../../engine/token";
 
 const TOOLS: { id: FaceKind | "copy" | "copyAll" | "addMark"; label: string }[] = [
   { id: "number", label: "Number" },
@@ -245,6 +246,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
                 glyph={selectedFace.emblem}
                 defaultScale={DEFAULT_EMBLEM_SCALE}
                 defaultOffsetY={DEFAULT_EMBLEM_OFFSET_Y}
+                sizeMax={glyphSizeSliderMax(selectedDie?.type ?? "d6", selectedFace.emblem.kind, "emblem")}
                 onChange={(patch) =>
                   updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", patch)
                 }
@@ -257,7 +259,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
           <GlyphPlace
             glyph={selectedFace.primary}
             sizeMin={0.3}
-            sizeMax={2.2}
+            sizeMax={glyphSizeSliderMax(selectedDie?.type ?? "d6", selectedFace.primary.kind, "primary")}
             onChange={(patch) =>
               updateFaceGlyph(selectedDieId, selectedFaceIndex, "primary", patch)
             }
