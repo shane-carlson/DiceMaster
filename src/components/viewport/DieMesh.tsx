@@ -8,18 +8,10 @@ import {
 } from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { PlacedGlyph } from "../../engine/buildDie";
-import { faceOutline3D, geometryFromFaces, type DieFace, type FaceCarveHole } from "../../engine/faces";
+import { faceOutline3D, geometryFromFaces, type DieFace } from "../../engine/faces";
 import { numeralInk } from "../../engine/ink";
 
-function GlyphMesh({
-  glyph,
-  color,
-  inspectFace,
-}: {
-  glyph: PlacedGlyph;
-  color: string;
-  inspectFace: boolean;
-}) {
+function GlyphMesh({ glyph, color }: { glyph: PlacedGlyph; color: string }) {
   const ref = useRef<ThreeMesh>(null);
 
   useLayoutEffect(() => {
@@ -30,15 +22,8 @@ function GlyphMesh({
   }, [glyph]);
 
   return (
-    <mesh ref={ref} geometry={glyph.geometry} renderOrder={1}>
-      <meshStandardMaterial
-        color={color}
-        roughness={inspectFace ? 0.38 : 0.45}
-        metalness={0.02}
-        emissive={color}
-        emissiveIntensity={inspectFace ? 0.22 : 0.1}
-        side={DoubleSide}
-      />
+    <mesh ref={ref} geometry={glyph.geometry} renderOrder={2}>
+      <meshBasicMaterial color={color} depthWrite={false} />
     </mesh>
   );
 }
@@ -99,21 +84,7 @@ export function DieMesh({
     return geom;
   }, [faces, selectedFace, inspectFace]);
 
-  const carveHoles = useMemo((): FaceCarveHole[] => {
-    return glyphs
-      .filter((g) => g.inset)
-      .map((g) => ({
-        faceIndex: g.faceIndex,
-        shapes: g.shapes,
-        ox: g.ox,
-        oy: g.oy,
-        rotation: g.rotation,
-      }));
-  }, [glyphs]);
-  const shaded = useMemo(
-    () => geometryFromFaces(faces, carveHoles),
-    [faces, carveHoles],
-  );
+  const shaded = useMemo(() => geometryFromFaces(faces), [faces]);
   const displayBody = shaded ?? body;
 
   useLayoutEffect(() => {
@@ -140,6 +111,9 @@ export function DieMesh({
           metalness={0.02}
           emissive={inspectFace ? color : selected ? "#5c4018" : "#110a06"}
           emissiveIntensity={inspectFace ? 0.18 : selected ? 0.28 : 0.04}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
         />
       </mesh>
       {glyphs.map((g, i) => (
@@ -147,7 +121,6 @@ export function DieMesh({
           key={`${g.faceIndex}-${g.role}-${i}`}
           glyph={g}
           color={numeralInk(color, g.role === "emblem" ? "emblem" : "primary")}
-          inspectFace={inspectFace}
         />
       ))}
       {highlight && (

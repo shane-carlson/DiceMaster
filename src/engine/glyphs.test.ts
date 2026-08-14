@@ -34,30 +34,11 @@ describe("engraved glyph wells", () => {
     s.lineTo(2, 2);
     s.lineTo(-2, 2);
     s.closePath();
-    const geom = extrudeShapes([s], depth, "inset", true);
+    const geom = extrudeShapes([s], depth, "inset");
     expect(geom).toBeTruthy();
     geom!.computeBoundingBox();
     const bb = geom!.boundingBox!;
-    expect(bb.max.z).toBeLessThan(0.05);
+    expect(bb.max.z).toBeCloseTo(0, 2);
     expect(bb.min.z).toBeCloseTo(-depth, 2);
-
-    const pos = geom!.getAttribute("position");
-    let openingCaps = 0;
-    let floorCaps = 0;
-    for (let i = 0; i < pos.count; i += 3) {
-      const z0 = pos.getZ(i);
-      const z1 = pos.getZ(i + 1);
-      const z2 = pos.getZ(i + 2);
-      if (Math.abs(z0) < 0.03 && Math.abs(z1) < 0.03 && Math.abs(z2) < 0.03) openingCaps++;
-      if (
-        Math.abs(z0 + depth) < 0.03 &&
-        Math.abs(z1 + depth) < 0.03 &&
-        Math.abs(z2 + depth) < 0.03
-      ) {
-        floorCaps++;
-      }
-    }
-    expect(openingCaps).toBe(0);
-    expect(floorCaps).toBeGreaterThan(0);
   });
 });

@@ -245,33 +245,6 @@ describe("face centers", () => {
 });
 
 describe("carved preview wells", () => {
-  it("cuts a hole in the display face", () => {
-    const faces = extractFaces(createDieGeometry("d6", 16), "d6");
-    const solid = geometryFromFaces(faces)!;
-    const holed = geometryFromFaces(faces, [
-      {
-        faceIndex: faces[0].index,
-        ox: 0,
-        oy: 0,
-        rotation: 0,
-        shapes: [
-          {
-            outer: [
-              { x: -1.2, y: -1.2 },
-              { x: 1.2, y: -1.2 },
-              { x: 1.2, y: 1.2 },
-              { x: -1.2, y: 1.2 },
-            ],
-            holes: [],
-          },
-        ],
-      },
-    ])!;
-    expect(holed.getAttribute("position").count).toBeGreaterThan(
-      solid.getAttribute("position").count,
-    );
-  });
-
   it("sits engraved preview geometry below the face by the default depth", () => {
     const depth = DEFAULT_DEPTH.standard;
     const s = new Shape();
@@ -280,7 +253,7 @@ describe("carved preview wells", () => {
     s.lineTo(1, 1);
     s.lineTo(-1, 1);
     s.closePath();
-    const geom = extrudeShapes([s], depth, "inset", true)!;
+    const geom = extrudeShapes([s], depth, "inset")!;
     const face = extractFaces(createDieGeometry("d6", 16), "d6")[0];
     const m = faceMatrix(face, 0, 0, 0, 0);
     const pos = geom.getAttribute("position");
@@ -294,50 +267,8 @@ describe("carved preview wells", () => {
       max = Math.max(max, along);
     }
     expect(max).toBeLessThan(0.08);
+    expect(max).toBeGreaterThan(-0.08);
     expect(min).toBeLessThan(-depth * 0.9);
     expect(min).toBeGreaterThan(-depth - 0.08);
-  });
-
-  it("keeps D10 poles joined when kite faces have carve holes", () => {
-    const hull = createDieGeometry("d10", 16);
-    hull.computeBoundingBox();
-    const bb = hull.boundingBox!;
-    const faces = extractFaces(hull, "d10");
-    const display = geometryFromFaces(
-      faces,
-      faces.map((face) => ({
-        faceIndex: face.index,
-        ox: 0,
-        oy: 0,
-        rotation: 0,
-        shapes: [
-          {
-            outer: [
-              { x: -0.7, y: -0.7 },
-              { x: 0.7, y: -0.7 },
-              { x: 0.7, y: 0.7 },
-              { x: -0.7, y: 0.7 },
-            ],
-            holes: [],
-          },
-        ],
-      })),
-    )!;
-    const pos = display.getAttribute("position");
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (let i = 0; i < pos.count; i++) {
-      minY = Math.min(minY, pos.getY(i));
-      maxY = Math.max(maxY, pos.getY(i));
-    }
-    expect(maxY).toBeCloseTo(bb.max.y, 4);
-    expect(minY).toBeCloseTo(bb.min.y, 4);
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i);
-      if (y > maxY - 1e-3 || y < minY + 1e-3) {
-        expect(pos.getX(i)).toBeCloseTo(0, 4);
-        expect(pos.getZ(i)).toBeCloseTo(0, 4);
-      }
-    }
   });
 });

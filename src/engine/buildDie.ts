@@ -15,7 +15,7 @@ import {
 import type { Font } from "opentype.js";
 import { extractFaces, faceInradius, glyphFitSize, type DieFace } from "./faces";
 import { createDieGeometry, uniqueVertices } from "./geometry";
-import { buildGlyphGeometry, circleContour, pipPositions, stripCapAtZ, type GlyphShapeContours } from "./glyphs";
+import { buildGlyphGeometry, pipPositions, type GlyphShapeContours } from "./glyphs";
 import { numberFaces, type NumberedFace } from "./numbering";
 import { d4CornerPlacements, tetraOppositeVertexLabels, usesVertexNumerals } from "./d4";
 import type { DieInstance, GlyphSettings, LogoAsset } from "./types";
@@ -124,7 +124,6 @@ async function placedFromGlyph(
     fit,
     depth,
     inset ? "inset" : "outset",
-    inset,
   );
   const cutter = await buildGlyphGeometry(glyph, font, logos, fit, cutterDepth, "center");
   if (!preview || !cutter) return null;
@@ -163,12 +162,8 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
   return pts.map((p) => {
     const preview = new CylinderGeometry(radius, radius, depth, 20);
     preview.rotateX(Math.PI / 2);
-    if (inset) {
-      preview.translate(0, 0, -depth / 2);
-      stripCapAtZ(preview, 0);
-    } else {
-      preview.translate(0, 0, depth / 2);
-    }
+    if (inset) preview.translate(0, 0, -depth / 2);
+    else preview.translate(0, 0, depth / 2);
     const cutter = new CylinderGeometry(radius, radius, cutterDepth, 20);
     cutter.rotateX(Math.PI / 2);
     return {
@@ -189,7 +184,7 @@ function pipGlyphs(face: NumberedFace, die: DieInstance): PlacedGlyph[] {
       ox: p.x,
       oy: p.y,
       rotation: 0,
-      shapes: [{ outer: circleContour(radius), holes: [] }],
+      shapes: [],
       inset,
     };
   });
