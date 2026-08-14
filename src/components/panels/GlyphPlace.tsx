@@ -1,25 +1,28 @@
 import type { GlyphSettings } from "../../engine/types";
-import { Slider } from "./Slider";
+import { DEFAULT_GLYPH_SCALE } from "../../engine/defaults";
+import { PercentSlider, Slider } from "./Slider";
 
 export function GlyphPlace({
   glyph,
   onChange,
   sizeMin = 0.15,
   sizeMax = 1.6,
+  defaultScale = DEFAULT_GLYPH_SCALE,
 }: {
   glyph: GlyphSettings;
   onChange: (patch: Partial<GlyphSettings>) => void;
   sizeMin?: number;
   sizeMax?: number;
+  defaultScale?: number;
 }) {
   return (
     <>
-      <Slider
+      <PercentSlider
         label="Size"
         value={glyph.scale}
+        defaultValue={defaultScale}
         min={sizeMin}
         max={sizeMax}
-        step={0.02}
         onChange={(n) => onChange({ scale: n })}
       />
       <Slider

@@ -88,6 +88,10 @@ export const DEFAULT_BUMPER: Record<SizeFormatId, number> = {
   giant: 0.8,
 };
 
+export function defaultBumperSize(format: SizeFormatId | "custom"): number {
+  return format === "custom" ? DEFAULT_BUMPER.standard : DEFAULT_BUMPER[format];
+}
+
 export function sizeFor(type: DieType, format: SizeFormatId): number {
   return SIZE_CHART[format][type];
 }

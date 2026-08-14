@@ -1,5 +1,5 @@
 import { uid } from "./id";
-import { DEFAULT_BUMPER, sizeFor } from "./sizes";
+import { defaultBumperSize, sizeFor } from "./sizes";
 import { defaultCarveDepth, resolveCarveDepth } from "./carve";
 import type {
   DieInstance,
@@ -36,6 +36,11 @@ export function defaultLabels(type: DieType, d10Style: D10Style): string[] {
   }
 }
 
+export const DEFAULT_GLYPH_SCALE = 1;
+export const DEFAULT_EMBLEM_SCALE = 0.42;
+export const DEFAULT_FONT_SCALE = 1;
+export const DEFAULT_GLOBAL_FONT_SCALE = 1;
+
 export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
   return {
     kind,
@@ -45,7 +50,7 @@ export function makeEmblem(kind: "symbol" | "logo", id: string): GlyphSettings {
     offsetX: 0,
     offsetY: 0.58,
     rotation: 0,
-    scale: 0.42,
+    scale: DEFAULT_EMBLEM_SCALE,
     depth: null,
     underscore: false,
   };
@@ -61,7 +66,7 @@ export function makeGlyph(text: string): GlyphSettings {
     offsetX: 0,
     offsetY: 0,
     rotation: 0,
-    scale: 1,
+    scale: DEFAULT_GLYPH_SCALE,
     depth: null,
     underscore: confused,
   };
@@ -89,10 +94,10 @@ export function createDie(
     sizeFormat: format,
     cornerRounding: 0.18,
     engravingDepth: defaultCarveDepth(format),
-    fontScale: 1,
+    fontScale: DEFAULT_FONT_SCALE,
     color: DIE_COLORS[colorIndex % DIE_COLORS.length],
     bumpers: false,
-    bumperSize: DEFAULT_BUMPER[format],
+    bumperSize: defaultBumperSize(format),
     engraveMode: "engrave",
     d10Style,
     numberStyle: "numerals",
@@ -107,7 +112,7 @@ export function rescaleDie(die: DieInstance, format: SizeFormatId): DieInstance 
     sizeFormat: format,
     sizeMm: sizeFor(die.type, format),
     engravingDepth: defaultCarveDepth(format),
-    bumperSize: DEFAULT_BUMPER[format],
+    bumperSize: defaultBumperSize(format),
   };
 }
 

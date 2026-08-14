@@ -4,8 +4,9 @@ import { previewFacesForSet, type FacePreview } from "../../engine/facePreview";
 import { numeralInk } from "../../engine/ink";
 import { symbolById } from "../../engine/symbols";
 import type { FaceKind } from "../../engine/types";
-import { makeEmblem } from "../../engine/defaults";
+import { DEFAULT_EMBLEM_SCALE, DEFAULT_GLOBAL_FONT_SCALE, makeEmblem } from "../../engine/defaults";
 import { GlyphPlace } from "./GlyphPlace";
+import { PercentSlider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
 import { useProjectStore } from "../../store/projectStore";
 
@@ -111,7 +112,6 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
   const [copied, setCopied] = useState<{ dieId: string; faceIndex: number } | null>(null);
 
   const faces = useMemo(() => previewFacesForSet(project.dice), [project.dice]);
-  const fontSize = Math.round(project.globalFontScale * 13);
   const selectedDie = project.dice.find((d) => d.id === selectedDieId);
   const selectedFace =
     selectedDie && selectedFaceIndex !== null ? selectedDie.faces[selectedFaceIndex] : null;
@@ -166,16 +166,14 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
             )}
           </select>
         </label>
-        <label>
-          Size
-          <input
-            type="number"
-            min={8}
-            max={22}
-            value={fontSize}
-            onChange={(e) => setGlobalFontScale(Number(e.target.value) / 13)}
-          />
-        </label>
+        <PercentSlider
+          label="Size"
+          value={project.globalFontScale}
+          defaultValue={DEFAULT_GLOBAL_FONT_SCALE}
+          min={0.6}
+          max={1.5}
+          onChange={setGlobalFontScale}
+        />
         <button className="btn btn-small" onClick={() => fontRef.current?.click()}>
           Upload font
         </button>
@@ -191,10 +189,10 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
         />
       </div>
       <p className="help">
-        Size is set-wide. Click a face, then Add symbol to park a crest beside the number —
-        Size and Move sliders appear below. Replace with symbol or logo swaps the number out.
-        D4 tetrahedron faces show three numbers, one at each vertex — read the point that lands
-        up.
+        Size is a percent change from the default, set-wide. Click a face, then Add symbol to park
+        a crest beside the number — Size and Move sliders appear below. Replace with symbol or
+        logo swaps the number out. D4 tetrahedron faces show three numbers, one at each vertex —
+        read the point that lands up.
       </p>
 
       <div className="face-editor-tools">
@@ -232,6 +230,7 @@ export function FaceEditor({ open, onClose }: { open: boolean; onClose: () => vo
               )}
               <GlyphPlace
                 glyph={selectedFace.emblem}
+                defaultScale={DEFAULT_EMBLEM_SCALE}
                 onChange={(patch) =>
                   updateFaceGlyph(selectedDieId, selectedFaceIndex, "emblem", patch)
                 }

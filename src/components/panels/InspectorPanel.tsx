@@ -1,9 +1,15 @@
 import { useEffect } from "react";
 import { DIE_COLORS, DIE_LABELS, type FaceKind, type SizeFormatId } from "../../engine/types";
 import { selectedDie, useProjectStore } from "../../store/projectStore";
-import { makeEmblem } from "../../engine/defaults";
+import {
+  DEFAULT_EMBLEM_SCALE,
+  DEFAULT_FONT_SCALE,
+  DEFAULT_GLOBAL_FONT_SCALE,
+  makeEmblem,
+} from "../../engine/defaults";
+import { defaultBumperSize } from "../../engine/sizes";
 import { GlyphPlace } from "./GlyphPlace";
-import { Slider } from "./Slider";
+import { PercentSlider, Slider } from "./Slider";
 import { SymbolSelect } from "./SymbolPicker";
 
 const KINDS: { id: FaceKind; label: string }[] = [
@@ -210,6 +216,7 @@ export function InspectorPanel() {
               )}
               <GlyphPlace
                 glyph={face.emblem}
+                defaultScale={DEFAULT_EMBLEM_SCALE}
                 onChange={(patch) => state.updateFaceGlyph(die.id, faceNo, "emblem", patch)}
               />
               <button
@@ -306,12 +313,12 @@ export function InspectorPanel() {
         suffix=" mm"
         onChange={(n) => state.updateDie(die.id, { engravingDepth: n })}
       />
-      <Slider
+      <PercentSlider
         label="Glyph scale"
         value={die.fontScale}
+        defaultValue={DEFAULT_FONT_SCALE}
         min={0.4}
         max={1.8}
-        step={0.02}
         onChange={(n) => state.updateDie(die.id, { fontScale: n })}
       />
       <div className="field">
@@ -380,13 +387,12 @@ export function InspectorPanel() {
         </label>
       </div>
       {die.bumpers && (
-        <Slider
+        <PercentSlider
           label="Bumper size"
           value={die.bumperSize}
+          defaultValue={defaultBumperSize(die.sizeFormat)}
           min={0.15}
           max={1.6}
-          step={0.05}
-          suffix=" mm"
           onChange={(n) => state.updateDie(die.id, { bumperSize: n })}
         />
       )}
@@ -405,12 +411,12 @@ export function InspectorPanel() {
       </div>
 
       <h3>Set-wide type</h3>
-      <Slider
+      <PercentSlider
         label="Global glyph scale"
         value={state.project.globalFontScale}
+        defaultValue={DEFAULT_GLOBAL_FONT_SCALE}
         min={0.6}
         max={1.5}
-        step={0.02}
         onChange={(n) => state.setGlobalFontScale(n)}
       />
     </aside>

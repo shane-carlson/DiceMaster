@@ -885,6 +885,13 @@ img {
   width: 72px;
 }
 
+.face-editor-fonts .field {
+  min-width: 160px;
+  flex: 1;
+  max-width: 280px;
+  margin-bottom: 0;
+}
+
 .face-editor-tools {
   display: flex;
   flex-wrap: wrap;
