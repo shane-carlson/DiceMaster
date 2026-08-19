@@ -83,7 +83,7 @@ export function GoogleSignIn({
           ux_mode: "popup",
           auto_select: false,
         });
-        const width = Math.min(360, Math.max(240, host.current.clientWidth || 320));
+        const width = Math.min(host.current.clientWidth || 320, 480);
         window.google.accounts.id.renderButton(host.current, {
           type: "standard",
           theme: "outline",
