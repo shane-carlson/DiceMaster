@@ -152,97 +152,103 @@ function AuthScreen({
           Continue as guest
         </Link>
       </nav>
-      <section className="auth-card">
-        <p className="kicker">Account</p>
-        <h1>{title}</h1>
-        <p className="lede">{lead}</p>
-        {pendingEmail && (
-          <div className="auth-notice" role="status">
-            <p>
-              Confirm <strong>{pendingEmail}</strong> before using vault features. Check your inbox
-              for a link from Ready Writer One, then return here to sign in.
-            </p>
-            <button className="btn btn-gold" type="button" disabled={busy} onClick={() => void resend()}>
-              {busy ? "Working…" : "Resend confirmation email"}
-            </button>
+      <div className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-copy">
+            <p className="kicker">Account</p>
+            <h1>{title}</h1>
+            <p className="lede">{lead}</p>
           </div>
-        )}
-        <form className="auth-form" onSubmit={(e) => void submit(e)}>
-          {showName && (
-            <label className="field">
-              <span>
-                Display name
-                <InfoTip text="How you appear in the workshop header and on your vault." />
-              </span>
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                autoComplete="nickname"
-                maxLength={40}
-              />
-            </label>
-          )}
-          <label className="field">
-            <span>
-              Email
-              <InfoTip text="The address you use to sign in to your DiceMaster vault." />
-            </span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-            />
-          </label>
-          <label className="field">
-            <span>
-              Password
-              <InfoTip text={showName ? PASSWORD_HINT : "The password for this vault account."} />
-            </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={showName ? "new-password" : "current-password"}
-              minLength={showName ? 12 : 1}
-              required
-            />
-          </label>
-          {showName && (
-            <>
-              <PasswordStrength password={password} />
+          <div className="auth-panel">
+            {pendingEmail && (
+              <div className="auth-notice" role="status">
+                <p>
+                  Confirm <strong>{pendingEmail}</strong> before using vault features. Check your inbox
+                  for a link from Ready Writer One, then return here to sign in.
+                </p>
+                <button className="btn btn-gold" type="button" disabled={busy} onClick={() => void resend()}>
+                  {busy ? "Working…" : "Resend confirmation email"}
+                </button>
+              </div>
+            )}
+            <form className="auth-form" onSubmit={(e) => void submit(e)}>
+              {showName && (
+                <label className="field">
+                  <span>
+                    Display name
+                    <InfoTip text="How you appear in the workshop header and on your vault." />
+                  </span>
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="nickname"
+                    maxLength={40}
+                  />
+                </label>
+              )}
               <label className="field">
                 <span>
-                  Confirm password
-                  <InfoTip text="Retype the same password so a mistype does not lock the vault." />
+                  Email
+                  <InfoTip text="The address you use to sign in to your DiceMaster vault." />
                 </span>
                 <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  autoComplete="new-password"
-                  minLength={12}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   required
                 />
               </label>
-              {confirm.length > 0 && !passwordsMatch(password, confirm) && (
-                <p className="form-error">The two passwords do not match.</p>
+              <label className="field">
+                <span>
+                  Password
+                  <InfoTip text={showName ? PASSWORD_HINT : "The password for this vault account."} />
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={showName ? "new-password" : "current-password"}
+                  minLength={showName ? 12 : 1}
+                  required
+                />
+              </label>
+              {showName && (
+                <>
+                  <PasswordStrength password={password} />
+                  <label className="field">
+                    <span>
+                      Confirm password
+                      <InfoTip text="Retype the same password so a mistype does not lock the vault." />
+                    </span>
+                    <input
+                      type="password"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      autoComplete="new-password"
+                      minLength={12}
+                      required
+                    />
+                  </label>
+                  {confirm.length > 0 && !passwordsMatch(password, confirm) && (
+                    <p className="form-error">The two passwords do not match.</p>
+                  )}
+                </>
               )}
-            </>
-          )}
-          {notice && <p className="form-ok">{notice}</p>}
-          {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-gold" type="submit" disabled={busy || !signupReady}>
-            {busy ? "Working…" : submitLabel}
-          </button>
-        </form>
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
-        <GoogleSignIn onCredential={(credential) => void google(credential)} disabled={busy} />
-        <p className="help">{alt}</p>
-      </section>
+              {notice && <p className="form-ok">{notice}</p>}
+              {error && <p className="form-error">{error}</p>}
+              <button className="btn btn-gold" type="submit" disabled={busy || !signupReady}>
+                {busy ? "Working…" : submitLabel}
+              </button>
+            </form>
+            <div className="auth-divider">
+              <span>or</span>
+            </div>
+            <GoogleSignIn onCredential={(credential) => void google(credential)} disabled={busy} />
+            <p className="help">{alt}</p>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

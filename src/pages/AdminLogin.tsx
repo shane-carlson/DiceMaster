@@ -36,51 +36,57 @@ export function AdminLogin() {
           User sign in
         </Link>
       </nav>
-      <section className="auth-card">
-        <p className="kicker">Staff</p>
-        <h1>Admin console</h1>
-        <p className="lede">
-          Sign in with an administrator account to manage users, banners, fonts, and symbols.
-        </p>
-        <form className="auth-form" onSubmit={(e) => void submit(e)}>
-          <label className="field">
-            <span>
-              Email
-              <InfoTip text="Administrator account email. First boot seeds admin@dicemaster.local unless you override it." />
-            </span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="username"
-              required
-            />
-          </label>
-          <label className="field">
-            <span>
-              Password
-              <InfoTip text="Administrator password. Change the seeded password as soon as you are in." />
-            </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              minLength={8}
-              required
-            />
-          </label>
-          {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-gold" type="submit" disabled={busy}>
-            {busy ? "Working…" : "Enter console"}
-          </button>
-        </form>
-        <p className="help">
-          First-run default is <code>{DEFAULT_ADMIN_EMAIL}</code> / <code>{DEFAULT_ADMIN_PASSWORD}</code>.
-          Change it after you sign in. Override with <code>ADMIN_EMAIL</code> and{" "}
-          <code>ADMIN_PASSWORD</code> before the first boot.
-        </p>
-      </section>
+      <div className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-copy">
+            <p className="kicker">Staff</p>
+            <h1>Admin console</h1>
+            <p className="lede">
+              Sign in with an administrator account to manage users, banners, fonts, and symbols.
+            </p>
+          </div>
+          <div className="auth-panel">
+            <form className="auth-form" onSubmit={(e) => void submit(e)}>
+              <label className="field">
+                <span>
+                  Email
+                  <InfoTip text="Administrator account email. First boot seeds admin@dicemaster.local unless you override it." />
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>
+                  Password
+                  <InfoTip text="Administrator password. Change the seeded password as soon as you are in." />
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              {error && <p className="form-error">{error}</p>}
+              <button className="btn btn-gold" type="submit" disabled={busy}>
+                {busy ? "Working…" : "Enter console"}
+              </button>
+            </form>
+            <p className="help">
+              First-run default is <code>{DEFAULT_ADMIN_EMAIL}</code> / <code>{DEFAULT_ADMIN_PASSWORD}</code>.
+              Change it after you sign in. Override with <code>ADMIN_EMAIL</code> and{" "}
+              <code>ADMIN_PASSWORD</code> before the first boot.
+            </p>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
